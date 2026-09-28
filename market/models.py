@@ -61,6 +61,7 @@ class Position(models.Model):
     class Meta:
         verbose_name = "Позиция"
         verbose_name_plural = "Позиции"
+        unique_together = ['portfolio', 'instrument']
 
     def __str__(self):
         return f"{self.portfolio} — {self.instrument}"

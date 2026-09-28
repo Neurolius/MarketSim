@@ -1,7 +1,7 @@
 from rest_framework.viewsets import GenericViewSet, mixins
 
-from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade, Profile
-from market.serializers import InstrumentTypeSerializer, InstrumentSerializer, PortfolioSerializer, PositionSerializer, PriceHistorySerializer, TradeSerializer, ProfileSerializer
+from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade
+from market.serializers import InstrumentTypeSerializer, InstrumentSerializer, PortfolioSerializer, PositionSerializer, PriceHistorySerializer, TradeSerializer
 
 class InstrumentTypeViewset(
     mixins.CreateModelMixin,
@@ -34,21 +34,16 @@ class PortfolioViewset(
     serializer_class = PortfolioSerializer
 
 class PositionViewset(
-    mixins.CreateModelMixin,
-    mixins.UpdateModelMixin,
     mixins.RetrieveModelMixin,
-    mixins.ListModelMixin, 
-    mixins.DestroyModelMixin,
+    mixins.ListModelMixin,
     GenericViewSet):
     queryset = Position.objects.all()
     serializer_class = PositionSerializer
 
+
 class PriceHistoryViewset(
-    mixins.CreateModelMixin,
-    mixins.UpdateModelMixin,
     mixins.RetrieveModelMixin,
-    mixins.ListModelMixin, 
-    mixins.DestroyModelMixin,
+    mixins.ListModelMixin,
     GenericViewSet):
     queryset = PriceHistory.objects.all()
     serializer_class = PriceHistorySerializer
@@ -63,12 +58,3 @@ class TradeViewset(
     queryset = Trade.objects.all()
     serializer_class = TradeSerializer
 
-class ProfileViewset(
-    mixins.CreateModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.RetrieveModelMixin,
-    mixins.ListModelMixin, 
-    mixins.DestroyModelMixin,
-    GenericViewSet):
-    queryset = Profile.objects.all()
-    serializer_class = ProfileSerializer

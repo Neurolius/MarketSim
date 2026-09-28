@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade, Profile
+from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade
 
 
 class InstrumentTypeSerializer(serializers.ModelSerializer):
@@ -43,9 +43,3 @@ class TradeSerializer(serializers.ModelSerializer):
                     'quantity', 'price', 'status', 'execution_price',
                     'created_at', 'executed_at', 'image']
         read_only_fields = ['execution_price', 'status', 'created_at', 'executed_at']
-
-
-class ProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Profile
-        fields = ['id', 'user']
