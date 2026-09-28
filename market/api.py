@@ -1,5 +1,9 @@
+from xml.dom import ValidationErr
+
 from rest_framework.viewsets import GenericViewSet, mixins
 
+from market import service
+from market.exceptions import TradeException
 from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade
 from market.serializers import InstrumentTypeSerializer, InstrumentSerializer, PortfolioSerializer, PositionSerializer, PriceHistorySerializer, TradeSerializer
 
@@ -50,11 +54,21 @@ class PriceHistoryViewset(
 
 class TradeViewset(
     mixins.CreateModelMixin,
-    mixins.UpdateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin, 
     mixins.DestroyModelMixin,
     GenericViewSet):
     queryset = Trade.objects.all()
     serializer_class = TradeSerializer
+
+    def perform_create(self, serializer):
+        trade = serializer.save()
+        if trade.execution_type == Trade.ExecutionType.market:
+            try:
+                service.execute_trade(trade)
+            except TradeException:
+                trade.status = Trade.Status.cancelled
+                trade.save()
+                raise
+
 

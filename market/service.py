@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from market.exceptions import NotEnoughMoney, NotEnoughQuantity
+from market.exceptions import NotEnoughMoney, NotEnoughQuantity, TradeException
 from market.models import Position, Trade
 
 
@@ -63,7 +63,7 @@ def check_pending_limit_orders():
         if(is_order_existed):
             try:
                 execute_trade(trade)
-            except (NotEnoughQuantity, NotEnoughMoney):
+            except TradeException:
                 trade.status = Trade.Status.cancelled
                 trade.save()
 
