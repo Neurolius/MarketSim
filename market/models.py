@@ -81,17 +81,17 @@ class PriceHistory(models.Model):
 
 class Trade(models.Model):
     class OrderType(models.TextChoices):
-        buy = "buy", "Buy"
-        sell = "sell", "Sell"
+        buy = "buy", "Покупка"
+        sell = "sell", "Продажа"
 
     class ExecutionType(models.TextChoices):
-        market = "market", "Market"
-        limit = "limit", "Limit"
+        market = "market", "Рыночная"
+        limit = "limit", "Лимитная"
 
     class Status(models.TextChoices):
-        pending = "pending", "Pending"
-        executed = "executed", "Executed"
-        cancelled = "cancelled", "Cancelled"
+        pending = "pending", "В ожидании"
+        executed = "executed", "Исполнена"
+        cancelled = "cancelled", "Отменена"
 
     class Meta:
         verbose_name = "Сделка"

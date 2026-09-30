@@ -65,7 +65,7 @@ class TradeViewset(
         trade = serializer.save()
         if trade.execution_type == Trade.ExecutionType.market:
             try:
-                service.execute_trade(trade)
+                service.StockMatrketService.execute_trade(trade)
             except TradeException:
                 trade.status = Trade.Status.cancelled
                 trade.save()
