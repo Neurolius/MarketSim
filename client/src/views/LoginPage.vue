@@ -7,7 +7,7 @@ const password = ref("");
 const router = useRouter();
 
 async function handleLogin() {
-  router.push({ name: "home" });
+  router.push({ name: "dashboard" });
 }
 </script>
 

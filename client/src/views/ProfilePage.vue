@@ -4,6 +4,7 @@ import HeaderNavbar from "@/components/HeaderNavbar.vue";
 
 <template>
   <div><HeaderNavbar /></div>
+  <div>Данные профиля и настройки</div>
 </template>
 
 <style scoped></style>

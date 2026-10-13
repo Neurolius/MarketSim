@@ -8,8 +8,10 @@ const balance = ref(10000);
   <div>
     <div class="header-navbar">
       <div>logo</div>
+      <a href="/dashboard">Главная</a>
       <a href="/portfolios">Список портфелей</a>
-      <a href="/settings">Настройки</a>
+      <a href="/instruments">Список инструментов</a>
+      <a href="/profile">Профиль</a>
       <div>Баланс: {{ balance }}</div>
       <button>Выход</button>
     </div>
