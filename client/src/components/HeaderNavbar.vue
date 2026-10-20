@@ -1,19 +1,26 @@
 <script setup>
-import { ref } from "vue";
+import { useRouter } from "vue-router";
+import useProfileStore from "@/stores/profileStore";
 
-const balance = ref(10000);
+const router = useRouter();
+const profileStore = useProfileStore();
+async function handleExit() {
+  await profileStore.logout();
+  router.push({ name: "login" });
+}
 </script>
 
 <template>
   <div>
     <div class="header-navbar">
       <div>logo</div>
-      <a href="/dashboard">Главная</a>
-      <a href="/portfolios">Список портфелей</a>
-      <a href="/instruments">Список инструментов</a>
-      <a href="/profile">Профиль</a>
-      <div>Баланс: {{ balance }}</div>
-      <button>Выход</button>
+      <router-link to="/dashboard">Главная</router-link>
+      <router-link to="/portfolios">Список портфелей</router-link>
+      <router-link to="/instruments">Список инструментов</router-link>
+      <router-link to="/profile">Профиль</router-link>
+      <form @submit.prevent.stop="handleExit">
+        <button type="submit">Выход</button>
+      </form>
     </div>
   </div>
 </template>

@@ -4,7 +4,7 @@ from django.urls import include, path
 from django.conf import settings
 from rest_framework.routers import DefaultRouter
 
-from market.api import InstrumentTypeViewset, InstrumentViewset, PortfolioViewset, PositionViewset, PriceHistoryViewset, TradeViewset
+from market.api import InstrumentTypeViewset, InstrumentViewset, PortfolioViewset, PositionViewset, PriceHistoryViewset, ProfileViewSet, TradeViewset
 
 
 router = DefaultRouter()
@@ -14,8 +14,10 @@ router.register("portfolio", PortfolioViewset, basename="portfolio")
 router.register("position", PositionViewset, basename="position")
 router.register("pricehistory", PriceHistoryViewset, basename="pricehistory")
 router.register("trade", TradeViewset, basename="trade")
+router.register("profile", ProfileViewSet, basename="profile")
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls))
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) \
+  + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

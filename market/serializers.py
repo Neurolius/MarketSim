@@ -7,7 +7,6 @@ class InstrumentTypeSerializer(serializers.ModelSerializer):
         model = InstrumentType
         fields = ['id', 'name']
 
-
 class InstrumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Instrument
@@ -16,6 +15,11 @@ class InstrumentSerializer(serializers.ModelSerializer):
 
 
 class PortfolioSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        if 'request' in self.context:
+            validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
     class Meta:
         model = Portfolio
         fields = ['id', 'name', 'user', 'balance', 'cover_image']
@@ -23,9 +27,11 @@ class PortfolioSerializer(serializers.ModelSerializer):
 
 
 class PositionSerializer(serializers.ModelSerializer):
+    instrument_info = InstrumentSerializer(source='instrument', read_only=True)
+
     class Meta:
         model = Position
-        fields = ['id', 'portfolio', 'instrument', 'quantity', 'average_price']
+        fields = ['id', 'portfolio', 'instrument', 'instrument_info', 'quantity', 'average_price']
         read_only_fields = ['portfolio', 'instrument', 'quantity', 'average_price']
 
 
@@ -37,9 +43,11 @@ class PriceHistorySerializer(serializers.ModelSerializer):
 
 
 class TradeSerializer(serializers.ModelSerializer):
+    instrument_info = InstrumentSerializer(source='instrument', read_only=True)
+
     class Meta:
         model = Trade
-        fields = ['id', 'portfolio', 'instrument', 'order_type', 'execution_type',
-                    'quantity', 'price', 'status', 'execution_price',
-                    'created_at', 'executed_at', 'image']
+        fields = ['id', 'portfolio', 'instrument', 'instrument_info', 'order_type',
+                  'execution_type', 'quantity', 'price', 'status',
+                  'execution_price', 'created_at', 'executed_at', 'image']
         read_only_fields = ['execution_price', 'status', 'created_at', 'executed_at']
