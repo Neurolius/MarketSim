@@ -5,6 +5,7 @@ import PortfoliosListPage from "../views/PortfoliosListPage.vue";
 import InstrumentsListPage from "../views/InstrumentsListPage.vue";
 import ProfilePage from "../views/ProfilePage.vue";
 import useProfileStore from "../stores/profileStore";
+import RegisterPage from "../views/RegisterPage.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -34,18 +35,26 @@ const router = createRouter({
       name: "profile",
       component: ProfilePage,
     },
+    {
+      path: "/register",
+      name: "register",
+      component: RegisterPage,
+    },
   ],
 });
 
-router.beforeEach(async (to, from) => {
+const publicPage = ["login", "register"];
+
+router.beforeEach(async (to) => {
   const profileStore = useProfileStore();
   if (!profileStore.isLoaded) {
     await profileStore.fetchMe();
   }
-  if (!profileStore.isAuthenticated && to.name !== "login") {
+  const isPublic = publicPage.includes(to.name);
+  if (!profileStore.isAuthenticated && !isPublic) {
     return { name: "login" };
   }
-  if (profileStore.isAuthenticated && to.name === "login") {
+  if (profileStore.isAuthenticated && isPublic) {
     return { name: "dashboard" };
   }
 });
