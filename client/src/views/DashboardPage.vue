@@ -5,10 +5,20 @@ import axios from "axios";
 import { computed, onBeforeMount, ref } from "vue";
 
 const portfoliosList = ref([]);
-const lastTradeList = ref([]);
+const tradeList = ref([]);
 
 const portfoliosBalance = computed(() =>
   portfoliosList.value.reduce((total, p) => total + Number(p.balance), 0),
+);
+
+const portfoliosById = computed(() =>
+  Object.fromEntries(portfoliosList.value.map((p) => [p.id, p])),
+);
+
+const lastTrades = computed(() =>
+  [...tradeList.value]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 10),
 );
 
 onBeforeMount(async () => {
@@ -17,16 +27,10 @@ onBeforeMount(async () => {
     axios.get("/api/trade/"),
   ]);
   portfoliosList.value = portfolios.data;
-  lastTradeList.value = trades.data;
-});
-
-const firstPortfolioTrades = computed(() => {
-  const first = portfoliosList.value[0];
-  if (!first) return [];
-  return lastTradeList.value.filter((trade) => trade.portfolio === first.id);
+  tradeList.value = trades.data;
 });
 </script>
-<!-- потом обращаться не к самому первому портфелю а как бы ко всем потому что же сделки же могут быть в разных портфелях -->
+
 <template>
   <div><HeaderNavbar /></div>
   <div class="main">
@@ -39,10 +43,10 @@ const firstPortfolioTrades = computed(() => {
       <div class="card-header">Последние сделки</div>
       <div class="card-container">
         <TradeCard
-          v-for="trade in firstPortfolioTrades"
+          v-for="trade in lastTrades"
           :key="trade.id"
           :trade="trade"
-          :portfolio="portfoliosList[0]"
+          :portfolio="portfoliosById[trade.portfolio]"
         />
       </div>
     </div>

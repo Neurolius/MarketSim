@@ -21,6 +21,12 @@ const props = defineProps({
     <div>Тип исполнения: {{ trade.execution_type }}</div>
     <div>Количество: {{ trade.quantity }}</div>
     <div>Цена выполнения: {{ trade.execution_price }}</div>
+    <div>
+      Время создания сделки: {{ new Date(trade.created_at).toLocaleString() }}
+    </div>
+    <div>
+      Время исполнения: {{ new Date(trade.executed_at).toLocaleString() }}
+    </div>
   </div>
 </template>
 

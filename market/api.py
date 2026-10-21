@@ -130,6 +130,11 @@ class TradeViewset(
     queryset = Trade.objects.all()
     serializer_class = TradeSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qs = qs.filter(portfolio__user=self.request.user)
+        return qs
+
     def perform_create(self, serializer):
         trade = serializer.save()
         if trade.execution_type == Trade.ExecutionType.market:
