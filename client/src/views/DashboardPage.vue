@@ -76,7 +76,7 @@ onBeforeMount(async () => {
 }
 
 .card-container {
-  max-height: 500px;
+  max-height: 600px;
   overflow-y: auto;
 }
 </style>
