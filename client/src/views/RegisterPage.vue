@@ -15,9 +15,9 @@ async function handleRegister() {
     await profileStore.register(username.value, password.value);
     router.push({ name: "dashboard" });
   } catch (error) {
-    console.error("Error ", error);
     errorMessage.value =
-      "Произошла ошибка при регистрации. Пожалуйста, попробуйте снова.";
+      error.response?.data?.detail ||
+      "Произошла ошибка при регистрации. Попробуйте снова.";
   }
 }
 function handleLogin() {
@@ -26,46 +26,146 @@ function handleLogin() {
 </script>
 
 <template>
-  <div class="login-page">
-    <h1 class="header-login">Регистрация</h1>
-    <form @submit.prevent.stop="handleRegister" class="login-form">
-      <div>
-        <label for="username">Имя пользователя:</label>
-        <input type="text" id="username" v-model="username" required />
+  <div class="register-page">
+    <div class="register-card">
+      <div class="register-card__header">
+        <div class="register-card__title">Регистрация</div>
+        <div class="register-card__subtitle">
+          Создайте аккаунт для доступа к симулятору
+        </div>
       </div>
-
-      <div>
-        <label for="password">Пароль:</label>
-        <input type="password" id="password" v-model="password" required />
+      <div v-if="errorMessage" class="register-card__error">
+        {{ errorMessage }}
       </div>
-      <button type="submit">Зарегистрироваться</button>
-    </form>
+      <form @submit.prevent.stop="handleRegister" class="register-form">
+        <div>
+          <label for="username" class="form-label">Имя пользователя</label>
+          <input type="text" v-model="username" id="username" required class="form-input" :class="{ 'form-input--error': errorMessage }" />
+        </div>
+        <div>
+          <label for="password" class="form-label">Пароль</label>
+          <input type="password" v-model="password" id="password" required class="form-input" :class="{ 'form-input--error': errorMessage }" />
+        </div>
 
-    <button @click="handleLogin" type="submit">На страницу входа</button>
-    <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+        <button type="submit" class="register-btn">Зарегистрироваться</button>
+      </form>
+      <div class="register-card__footer">
+        Уже есть аккаунт?
+        <router-link to="/login" class="link">Войти</router-link>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.header-login {
-  text-align: center;
-  font-size: 45px;
-}
-.login-form {
+.register-page{
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 10px;
+  height: 100vh;
+  background-color: #f2f4f7;
 }
-.error-message {
-  color: red;
-  text-align: center;
-}
-.login-page {
+
+.register-card{
+  width: 100%;
+  max-width: 400px;
+  background-color: #ffffff;
+  border: 1px solid #e1e5eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+  padding: 32px;
   display: flex;
   flex-direction: column;
+  gap: 20px;
+}
+
+.register-card__title{
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.register-card__subtitle{
+  color: #545d6b;
+  margin: 4px 0 0;
+}
+
+.register-card__error{
+  background: #fde9ea;
+  border-color: #f3c1c4;
+  color: #8e141b;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid;
+  font-size: 13px;
+}
+
+.register-form{
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.register-form label{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label{
+  font-size: 13px;
+  font-weight: 600;
+  color: #141821;
+}
+
+.form-input{
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #c9d0da;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #141821;
+  font: inherit;
+}
+
+.form-input--error{
+  border-color: #c41f28;
+  background: #fffafa;
+}
+
+.register-btn{
+  width: 100%;
+  min-height: 46px;
+  font-size: 16px;
+  background: #1d4ed8;
+  color: #fff !important;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none !important;
+  transition: background-color .15s, border-color .15s;
+}
+
+.register-card__footer{
+  text-align: center;
+  font-size: 13px;
+  color: #545d6b;
+}
+
+.link{
+  color: #1d4ed8;
+  font-weight: 600;
 }
 </style>
