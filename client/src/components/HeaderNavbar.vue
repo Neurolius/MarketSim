@@ -40,7 +40,7 @@ function handleProfile() {
         </router-link>
       </nav>
       <div class="profile-settings">
-        <button class="admin-btn">Админ-панель</button>
+        <a class="admin-btn" href="/admin">Админ-панель</a>
         <button class="profile-btn" @click="handleProfile">{{ username }}</button>
         <button @click="handleExit" class="exit-btn">Выйти</button>
       </div>
