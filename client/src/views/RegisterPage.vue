@@ -1,27 +1,26 @@
 <script setup>
-import { ref } from "vue";
-import { useRouter } from "vue-router";
-import useProfileStore from "@/stores/profileStore";
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import useProfileStore from '@/stores/profileStore'
 
-const router = useRouter();
-const profileStore = useProfileStore();
+const router = useRouter()
+const profileStore = useProfileStore()
 
-const username = ref("");
-const password = ref("");
-const errorMessage = ref("");
+const username = ref('')
+const password = ref('')
+const errorMessage = ref('')
 
 async function handleRegister() {
   try {
-    await profileStore.register(username.value, password.value);
-    router.push({ name: "dashboard" });
+    await profileStore.register(username.value, password.value)
+    router.push({ name: 'dashboard' })
   } catch (error) {
     errorMessage.value =
-      error.response?.data?.detail ||
-      "Произошла ошибка при регистрации. Попробуйте снова.";
+      error.response?.data?.detail || 'Произошла ошибка при регистрации. Попробуйте снова.'
   }
 }
 function handleLogin() {
-  router.push({ name: "login" });
+  router.push({ name: 'login' })
 }
 </script>
 
@@ -30,9 +29,7 @@ function handleLogin() {
     <div class="register-card">
       <div class="register-card__header">
         <div class="register-card__title">Регистрация</div>
-        <div class="register-card__subtitle">
-          Создайте аккаунт для доступа к симулятору
-        </div>
+        <div class="register-card__subtitle">Создайте аккаунт для доступа к симулятору</div>
       </div>
       <div v-if="errorMessage" class="register-card__error">
         {{ errorMessage }}
@@ -40,11 +37,25 @@ function handleLogin() {
       <form @submit.prevent.stop="handleRegister" class="register-form">
         <div>
           <label for="username" class="form-label">Имя пользователя</label>
-          <input type="text" v-model="username" id="username" required class="form-input" :class="{ 'form-input--error': errorMessage }" />
+          <input
+            type="text"
+            v-model="username"
+            id="username"
+            required
+            class="form-input"
+            :class="{ 'form-input--error': errorMessage }"
+          />
         </div>
         <div>
           <label for="password" class="form-label">Пароль</label>
-          <input type="password" v-model="password" id="password" required class="form-input" :class="{ 'form-input--error': errorMessage }" />
+          <input
+            type="password"
+            v-model="password"
+            id="password"
+            required
+            class="form-input"
+            :class="{ 'form-input--error': errorMessage }"
+          />
         </div>
 
         <button type="submit" class="register-btn">Зарегистрироваться</button>
@@ -58,7 +69,7 @@ function handleLogin() {
 </template>
 
 <style scoped>
-.register-page{
+.register-page {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -66,7 +77,7 @@ function handleLogin() {
   background-color: #f2f4f7;
 }
 
-.register-card{
+.register-card {
   width: 100%;
   max-width: 400px;
   background-color: #ffffff;
@@ -79,18 +90,18 @@ function handleLogin() {
   gap: 20px;
 }
 
-.register-card__title{
+.register-card__title {
   font-size: 26px;
   font-weight: 700;
   margin: 0;
 }
 
-.register-card__subtitle{
+.register-card__subtitle {
   color: #545d6b;
   margin: 4px 0 0;
 }
 
-.register-card__error{
+.register-card__error {
   background: #fde9ea;
   border-color: #f3c1c4;
   color: #8e141b;
@@ -103,25 +114,25 @@ function handleLogin() {
   font-size: 13px;
 }
 
-.register-form{
+.register-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.register-form label{
+.register-form label {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.form-label{
+.form-label {
   font-size: 13px;
   font-weight: 600;
   color: #141821;
 }
 
-.form-input{
+.form-input {
   width: 100%;
   height: 40px;
   padding: 0 12px;
@@ -132,12 +143,12 @@ function handleLogin() {
   font: inherit;
 }
 
-.form-input--error{
+.form-input--error {
   border-color: #c41f28;
   background: #fffafa;
 }
 
-.register-btn{
+.register-btn {
   width: 100%;
   min-height: 46px;
   font-size: 16px;
@@ -155,16 +166,18 @@ function handleLogin() {
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none !important;
-  transition: background-color .15s, border-color .15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
 }
 
-.register-card__footer{
+.register-card__footer {
   text-align: center;
   font-size: 13px;
   color: #545d6b;
 }
 
-.link{
+.link {
   color: #1d4ed8;
   font-weight: 600;
 }

@@ -1,34 +1,32 @@
 <script setup>
-import HeaderNavbar from "@/components/HeaderNavbar.vue";
-import TradeCard from "@/components/TradeCard.vue";
-import axios from "axios";
-import { computed, onBeforeMount, ref } from "vue";
+import HeaderNavbar from '@/components/HeaderNavbar.vue'
+import TradeCard from '@/components/TradeCard.vue'
+import axios from 'axios'
+import { computed, onBeforeMount, ref } from 'vue'
 
-const portfoliosList = ref([]);
-const tradeList = ref([]);
+const portfoliosList = ref([])
+const tradeList = ref([])
 
 const portfoliosBalance = computed(() =>
   portfoliosList.value.reduce((total, p) => total + Number(p.balance), 0),
-);
+)
 
 const portfoliosById = computed(() =>
   Object.fromEntries(portfoliosList.value.map((p) => [p.id, p])),
-);
+)
 
 const lastTrades = computed(() =>
-  [...tradeList.value]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 10),
-);
+  [...tradeList.value].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10),
+)
 
 onBeforeMount(async () => {
   const [portfolios, trades] = await Promise.all([
-    axios.get("/api/portfolio/"),
-    axios.get("/api/trade/"),
-  ]);
-  portfoliosList.value = portfolios.data;
-  tradeList.value = trades.data;
-});
+    axios.get('/api/portfolio/'),
+    axios.get('/api/trade/'),
+  ])
+  portfoliosList.value = portfolios.data
+  tradeList.value = trades.data
+})
 </script>
 
 <template>

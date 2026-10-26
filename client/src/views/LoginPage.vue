@@ -1,35 +1,32 @@
 <script setup>
-import { ref } from "vue";
-import { useRouter } from "vue-router";
-import useProfileStore from "@/stores/profileStore";
-import { storeToRefs } from "pinia";
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import useProfileStore from '@/stores/profileStore'
+import { storeToRefs } from 'pinia'
 
-const router = useRouter();
+const router = useRouter()
 
-const profileStore = useProfileStore();
-const { isAuthenticated } = storeToRefs(profileStore);
+const profileStore = useProfileStore()
+const { isAuthenticated } = storeToRefs(profileStore)
 
-const username = ref("");
-const password = ref("");
-const errorMessage = ref("");
+const username = ref('')
+const password = ref('')
+const errorMessage = ref('')
 
 async function handleLogin() {
   try {
-    await profileStore.login(username.value, password.value);
+    await profileStore.login(username.value, password.value)
     if (isAuthenticated.value) {
-      router.push({ name: "dashboard" });
+      router.push({ name: 'dashboard' })
     }
   } catch (error) {
     if (error.response && error.response.status === 403) {
-      errorMessage.value = "Неверный юзернейм или пароль";
+      errorMessage.value = 'Неверный юзернейм или пароль'
     } else {
-      errorMessage.value =
-        "Произошла ошибка при входе. Пожалуйста, попробуйте снова.";
+      errorMessage.value = 'Произошла ошибка при входе. Пожалуйста, попробуйте снова.'
     }
   }
 }
-
-
 </script>
 
 <template>
@@ -37,35 +34,47 @@ async function handleLogin() {
     <div class="login-card">
       <div class="login-card__header">
         <div class="login-card__title">Вход</div>
-        <div class="login-card__subtitle">
-          Симулятор биржи для обучения трейдингу
-        </div>
+        <div class="login-card__subtitle">Симулятор биржи для обучения трейдингу</div>
       </div>
       <div v-if="errorMessage" class="login-card__error">
         {{ errorMessage }}
       </div>
       <form @submit.prevent.stop="handleLogin" class="login-form">
-      <div>
-        <label for="username" class="form-label">Имя пользователя</label>
-        <input type="text" v-model="username" id="username" required  class="form-input" :class="{ 'form-input--error': errorMessage }"/>
-      </div>
-      <div>
-        <label for="password" class="form-label">Пароль</label>
-        <input type="password" v-model="password" id="password" required  class="form-input" :class="{ 'form-input--error': errorMessage }"/>
-      </div>
+        <div>
+          <label for="username" class="form-label">Имя пользователя</label>
+          <input
+            type="text"
+            v-model="username"
+            id="username"
+            required
+            class="form-input"
+            :class="{ 'form-input--error': errorMessage }"
+          />
+        </div>
+        <div>
+          <label for="password" class="form-label">Пароль</label>
+          <input
+            type="password"
+            v-model="password"
+            id="password"
+            required
+            class="form-input"
+            :class="{ 'form-input--error': errorMessage }"
+          />
+        </div>
 
-      <button type="submit" class="login-btn">Войти</button>
-    </form>
-    <div class="login-card__footer">
-      Нет аккаунта?
-      <router-link to="/register" class="link">Зарегистрироваться</router-link>
-    </div>
+        <button type="submit" class="login-btn">Войти</button>
+      </form>
+      <div class="login-card__footer">
+        Нет аккаунта?
+        <router-link to="/register" class="link">Зарегистрироваться</router-link>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.login-page{
+.login-page {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -73,7 +82,7 @@ async function handleLogin() {
   background-color: #f2f4f7;
 }
 
-.login-card{
+.login-card {
   width: 100%;
   max-width: 400px;
   background-color: #ffffff;
@@ -86,19 +95,18 @@ async function handleLogin() {
   gap: 20px;
 }
 
-.login-card__title{
+.login-card__title {
   font-size: 26px;
   font-weight: 700;
   margin: 0;
 }
 
-.login-card__subtitle{
+.login-card__subtitle {
   color: #545d6b;
   margin: 4px 0 0;
-  
 }
 
-.login-card__error{
+.login-card__error {
   background: #fde9ea;
   border-color: #f3c1c4;
   color: #8e141b;
@@ -111,26 +119,25 @@ async function handleLogin() {
   font-size: 13px;
 }
 
-.login-form{
+.login-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.login-form label{
+.login-form label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  
 }
 
-.form-label{
+.form-label {
   font-size: 13px;
   font-weight: 600;
   color: #141821;
 }
 
-.form-input{
+.form-input {
   width: 100%;
   height: 40px;
   padding: 0 12px;
@@ -141,12 +148,12 @@ async function handleLogin() {
   font: inherit;
 }
 
-.form-input--error{
+.form-input--error {
   border-color: #c41f28;
   background: #fffafa;
 }
 
-.login-btn{
+.login-btn {
   width: 100%;
   min-height: 46px;
   font-size: 16px;
@@ -164,16 +171,18 @@ async function handleLogin() {
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none !important;
-  transition: background-color .15s, border-color .15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
 }
 
-.login-card__footer{
+.login-card__footer {
   text-align: center;
   font-size: 13px;
   color: #545d6b;
 }
 
-.link{
+.link {
   color: #1d4ed8;
   font-weight: 600;
 }

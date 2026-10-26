@@ -1,9 +1,9 @@
 <script setup>
-import HeaderNavbar from "@/components/HeaderNavbar.vue";
-import useProfileStore from "@/stores/profileStore";
+import HeaderNavbar from '@/components/HeaderNavbar.vue'
+import useProfileStore from '@/stores/profileStore'
 
-const profileStore = useProfileStore();
-const username = profileStore.userName;
+const profileStore = useProfileStore()
+const username = profileStore.userName
 </script>
 
 <template>

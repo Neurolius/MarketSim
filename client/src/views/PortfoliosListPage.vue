@@ -1,6 +1,6 @@
 <script setup>
-import HeaderNavbar from "@/components/HeaderNavbar.vue";
-import PortfolioCard from "@/components/PortfolioCard.vue";
+import HeaderNavbar from '@/components/HeaderNavbar.vue'
+import PortfolioCard from '@/components/PortfolioCard.vue'
 </script>
 
 <template>
@@ -9,8 +9,8 @@ import PortfolioCard from "@/components/PortfolioCard.vue";
     Список портфелей
     <div>Карточки портфелей</div>
     <div>
-      CRUD портфеля и при нажатии на карточку подробные детали(позиции) и
-      возможность продажи и сделки этого портфеля
+      CRUD портфеля и при нажатии на карточку подробные детали(позиции) и возможность продажи и
+      сделки этого портфеля
     </div>
     <PortfolioCard />
   </div>
