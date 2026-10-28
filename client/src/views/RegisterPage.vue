@@ -2,12 +2,15 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import useProfileStore from '@/stores/profileStore'
+import AppIcon from '@/components/AppIcon.vue'
 
 const router = useRouter()
 const profileStore = useProfileStore()
 
 const username = ref('')
+const email = ref('')
 const password = ref('')
+const passwordRepeat = ref('')
 const errorMessage = ref('')
 
 async function handleRegister() {
@@ -19,166 +22,82 @@ async function handleRegister() {
       error.response?.data?.detail || 'Произошла ошибка при регистрации. Попробуйте снова.'
   }
 }
-function handleLogin() {
-  router.push({ name: 'login' })
-}
 </script>
 
 <template>
-  <div class="register-page">
-    <div class="register-card">
-      <div class="register-card__header">
-        <div class="register-card__title">Регистрация</div>
-        <div class="register-card__subtitle">Создайте аккаунт для доступа к симулятору</div>
-      </div>
-      <div v-if="errorMessage" class="register-card__error">
-        {{ errorMessage }}
-      </div>
-      <form @submit.prevent.stop="handleRegister" class="register-form">
-        <div>
-          <label for="username" class="form-label">Имя пользователя</label>
-          <input
-            type="text"
-            v-model="username"
-            id="username"
-            required
-            class="form-input"
-            :class="{ 'form-input--error': errorMessage }"
-          />
-        </div>
-        <div>
-          <label for="password" class="form-label">Пароль</label>
-          <input
-            type="password"
-            v-model="password"
-            id="password"
-            required
-            class="form-input"
-            :class="{ 'form-input--error': errorMessage }"
-          />
-        </div>
+  <div class="auth-layout">
+    <div class="auth-brand"><span class="auth-logo">MS</span>MarketSim</div>
 
-        <button type="submit" class="register-btn">Зарегистрироваться</button>
-      </form>
-      <div class="register-card__footer">
-        Уже есть аккаунт?
-        <router-link to="/login" class="link">Войти</router-link>
+    <form class="auth-card" @submit.prevent.stop="handleRegister">
+      <div>
+        <h1 class="auth-title">Регистрация</h1>
+        <p class="auth-subtitle">
+          После регистрации создайте первый портфель с виртуальным балансом
+        </p>
       </div>
-    </div>
+
+      <div v-if="errorMessage" class="alert alert-error" role="alert">
+        <AppIcon name="alert" />
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <div class="form">
+        <div class="form-field">
+          <label class="form-label" for="reg-username">Имя пользователя</label>
+          <input
+            id="reg-username"
+            v-model="username"
+            class="form-input"
+            :class="{ 'is-invalid': errorMessage }"
+            type="text"
+            autocomplete="username"
+            required
+          />
+          <!-- ошибка поля: <span class="form-error-text">Пользователь с таким именем уже существует</span> -->
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="reg-email">Email</label>
+          <input
+            id="reg-email"
+            v-model="email"
+            class="form-input"
+            type="email"
+            autocomplete="email"
+            placeholder="name@example.com"
+          />
+          <span class="form-hint">На него будут приходить коды 2FA</span>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="reg-password">Пароль</label>
+          <input
+            id="reg-password"
+            v-model="password"
+            class="form-input"
+            type="password"
+            autocomplete="new-password"
+            required
+          />
+          <span class="form-hint">Не менее 8 символов</span>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="reg-password-repeat">Повторите пароль</label>
+          <input
+            id="reg-password-repeat"
+            v-model="passwordRepeat"
+            class="form-input"
+            type="password"
+            autocomplete="new-password"
+            required
+          />
+          <!-- ошибка поля: <span class="form-error-text">Пароли не совпадают</span> -->
+        </div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">Создать аккаунт</button>
+      </div>
+
+      <p class="auth-footer">
+        Уже есть аккаунт?
+        <router-link :to="{ name: 'login' }">Войти</router-link>
+      </p>
+    </form>
   </div>
 </template>
-
-<style scoped>
-.register-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  background-color: #f2f4f7;
-}
-
-.register-card {
-  width: 100%;
-  max-width: 400px;
-  background-color: #ffffff;
-  border: 1px solid #e1e5eb;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.register-card__title {
-  font-size: 26px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.register-card__subtitle {
-  color: #545d6b;
-  margin: 4px 0 0;
-}
-
-.register-card__error {
-  background: #fde9ea;
-  border-color: #f3c1c4;
-  color: #8e141b;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 12px 16px;
-  border-radius: 6px;
-  border: 1px solid;
-  font-size: 13px;
-}
-
-.register-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.register-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #141821;
-}
-
-.form-input {
-  width: 100%;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid #c9d0da;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #141821;
-  font: inherit;
-}
-
-.form-input--error {
-  border-color: #c41f28;
-  background: #fffafa;
-}
-
-.register-btn {
-  width: 100%;
-  min-height: 46px;
-  font-size: 16px;
-  background: #1d4ed8;
-  color: #fff !important;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 16px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  text-decoration: none !important;
-  transition:
-    background-color 0.15s,
-    border-color 0.15s;
-}
-
-.register-card__footer {
-  text-align: center;
-  font-size: 13px;
-  color: #545d6b;
-}
-
-.link {
-  color: #1d4ed8;
-  font-weight: 600;
-}
-</style>

@@ -110,8 +110,14 @@ class PositionViewset(
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
     GenericViewSet):
-    queryset = Position.objects.all()
+    queryset = Position.objects.select_related('instrument', 'portfolio')
     serializer_class = PositionSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_superuser:
+            qs = qs.filter(portfolio__user=self.request.user)
+        return qs
 
 
 class PriceHistoryViewset(

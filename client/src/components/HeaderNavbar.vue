@@ -1,6 +1,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import useProfileStore from '@/stores/profileStore'
+import AppIcon from '@/components/AppIcon.vue'
 
 const router = useRouter()
 const profileStore = useProfileStore()
@@ -10,169 +11,190 @@ async function handleExit() {
   await profileStore.logout()
   router.push({ name: 'login' })
 }
-
-function handleProfile() {
-  router.push({name: 'profile'})
-}
-
 </script>
 
 <template>
   <header class="header-navbar">
     <div class="navbar-inner">
-      <div class="logo">
-        <router-link :to="{ name: 'dashboard'}">
-          <span>MarketSim</span>
+      <router-link :to="{ name: 'dashboard' }" class="navbar-brand">
+        <span class="navbar-logo">MS</span>
+        <span>MarketSim</span>
+      </router-link>
+
+      <nav class="navbar-links" aria-label="Основная навигация">
+        <router-link :to="{ name: 'dashboard' }" class="navbar-link" active-class="is-active">
+          Дашборд
         </router-link>
-      </div>
-      <nav class="nav">
-        <router-link :to="{ name: 'dashboard'}" class="nav-link">
-          <span>Дашборд</span>
+        <router-link :to="{ name: 'instruments' }" class="navbar-link" active-class="is-active">
+          Инструменты
         </router-link>
-        <router-link :to="{name: 'instruments'}" class="nav-link">
-          <span>Инструменты</span>
+        <router-link :to="{ name: 'portfolios' }" class="navbar-link" active-class="is-active">
+          Портфели
         </router-link>
-        <router-link :to="{ name: 'portfolios'}" class="nav-link">
-          <span>Портфели</span>
+        <router-link :to="{ name: 'profile' }" class="navbar-link" active-class="is-active">
+          Профиль
         </router-link>
-        <router-link :to="{ name: 'profile'}" class="nav-link">
-          <span>Профиль</span>
+        <router-link
+          v-if="profileStore.isSuperuser"
+          :to="{ name: 'instrument-types' }"
+          class="navbar-link"
+          active-class="is-active"
+        >
+          Типы инструментов
         </router-link>
       </nav>
-      <div class="profile-settings">
-        <a class="admin-btn" href="/admin">Админ-панель</a>
-        <button class="profile-btn" @click="handleProfile">{{ username }}</button>
-        <button @click="handleExit" class="exit-btn">Выйти</button>
+
+      <div class="navbar-user">
+        <a v-if="profileStore.isSuperuser" class="navbar-admin-btn" href="/admin">
+          <AppIcon name="shield" />
+          Админ-панель
+        </a>
+        <router-link :to="{ name: 'profile' }" class="navbar-username">
+          <span class="avatar">{{ username?.slice(0, 2).toUpperCase() }}</span>
+          {{ username }}
+        </router-link>
+        <button class="navbar-logout" type="button" @click="handleExit">
+          <AppIcon name="logout" />
+          Выйти
+        </button>
       </div>
     </div>
   </header>
 </template>
 
 <style scoped>
-.header-navbar{
-  background: #181818;
-  color: #c7cfdd;
+.header-navbar {
+  background: var(--color-nav);
+  color: var(--color-nav-text);
 }
 
-.navbar-inner{
+.navbar-inner {
+  max-width: var(--page-max-width);
   margin: 0 auto;
-  min-height: 56px;
-  padding: 0 24px;
+  min-height: var(--navbar-height);
+  padding: 0 var(--space-6);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
-.logo{
-  font-weight: 700;
-  font-size: 16px;
-  color: #fff !important;
-}
-
-.nav{
+.navbar-brand {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-inverse) !important;
+  font-weight: 700;
+  font-size: var(--font-size-lg);
+  text-decoration: none !important;
+}
+
+.navbar-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.navbar-links {
+  display: flex;
+  gap: var(--space-1);
   flex: 1 1 auto;
   overflow-x: auto;
 }
 
-.nav-link{
-  color: #c7cfdd;
-  padding: 0 12px;
+.navbar-link {
+  color: var(--color-nav-text) !important;
+  padding: 0 var(--space-3);
   min-height: 40px;
   display: flex;
   align-items: center;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-weight: 500;
   white-space: nowrap;
   text-decoration: none !important;
-  transition:
-    background-color 0.15s;
+  transition: background-color 0.15s;
 }
 
-.nav-link:hover{
-  background-color: #282828;
-}
-
-.nav-link.router-link-exact-active{
-  background: #1c2740;
+.navbar-link:hover {
+  background: var(--color-nav-hover);
   color: #fff !important;
-  box-shadow: inset 0 -2px 0 #1d4ed8;
 }
 
-.profile-settings{
+.navbar-link.is-active {
+  background: var(--color-nav-hover);
+  color: #fff !important;
+  box-shadow: inset 0 -2px 0 var(--color-accent);
+}
+
+.navbar-user {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   margin-left: auto;
 }
 
-.admin-btn{
+.navbar-admin-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  gap: var(--space-2);
   min-height: 34px;
+  padding: 0 var(--space-3);
   border: 1px solid #3a4763;
-  border-radius: 6px;
-  background: transparent;
+  border-radius: var(--radius-md);
   color: #fff !important;
   font-weight: 500;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   text-decoration: none !important;
-  cursor: pointer;
-  transition:
-    background-color 0.15s,
-    border-color 0.15s;
 }
 
-.admin-btn:hover{
-  background: #282828;
+.navbar-admin-btn:hover {
+  background: var(--color-nav-hover);
 }
 
-.profile-btn{
+.navbar-username {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  min-height: 34px;
-  border-radius: 6px;
+  gap: var(--space-2);
   color: #fff !important;
   font-weight: 500;
   text-decoration: none !important;
-  cursor: pointer;
-  background: transparent;
-  transition:
-    background-color 0.15s;
-  border: 1px solid #3a4763;
 }
 
-.profile-btn:hover{
-  background: #282828;
-}
-
-.exit-btn{
+.navbar-logout {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  gap: var(--space-2);
   min-height: 34px;
-  border: 1px solid #3a4763;
-  border-radius: 6px;
+  padding: 0 var(--space-3);
   background: transparent;
-  color: #fff !important;
-  font-weight: 500;
-  font-size: 13px;
-  text-decoration: none !important;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-nav-text);
+  font-size: var(--font-size-sm);
   cursor: pointer;
-  transition:
-    background-color 0.15s,
-    border-color 0.15s;
 }
 
-.exit-btn:hover{
-  background: #282828;
+.navbar-logout:hover {
+  background: var(--color-nav-hover);
+  color: #fff;
 }
 
+@media (max-width: 760px) {
+  .navbar-inner {
+    padding: var(--space-2) var(--space-4);
+    gap: var(--space-2);
+  }
+
+  .navbar-links {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
 </style>

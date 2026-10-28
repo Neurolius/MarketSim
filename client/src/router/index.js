@@ -6,9 +6,15 @@ import InstrumentsListPage from '../views/InstrumentsListPage.vue'
 import ProfilePage from '../views/ProfilePage.vue'
 import useProfileStore from '../stores/profileStore'
 import RegisterPage from '../views/RegisterPage.vue'
+import InstrumentPage from '../views/InstrumentPage.vue'
+import PortfolioPage from '../views/PortfolioPage.vue'
+import InstrumentTypesPage from '../views/InstrumentTypesPage.vue'
+import ForbiddenPage from '../views/ForbiddenPage.vue'
+import NotFoundPage from '../views/NotFoundPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior: () => ({ top: 0 }),
   routes: [
     {
       path: '/',
@@ -26,9 +32,24 @@ const router = createRouter({
       component: PortfoliosListPage,
     },
     {
+      path: '/portfolios/:id',
+      name: 'portfolio',
+      component: PortfolioPage,
+    },
+    {
       path: '/instruments',
       name: 'instruments',
       component: InstrumentsListPage,
+    },
+    {
+      path: '/instruments/:id',
+      name: 'instrument',
+      component: InstrumentPage,
+    },
+    {
+      path: '/instrument-types',
+      name: 'instrument-types',
+      component: InstrumentTypesPage,
     },
     {
       path: '/profile',
@@ -39,6 +60,16 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: RegisterPage,
+    },
+    {
+      path: '/forbidden',
+      name: 'forbidden',
+      component: ForbiddenPage,
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: NotFoundPage,
     },
   ],
 })
