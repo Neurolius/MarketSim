@@ -10,6 +10,7 @@ import { computed, onBeforeMount, ref } from 'vue'
 
 const portfoliosList = ref([])
 const tradeList = ref([])
+const positionList = ref([])
 
 const portfoliosBalance = computed(() =>
   portfoliosList.value.reduce((total, p) => total + Number(p.balance), 0),
@@ -23,13 +24,19 @@ const lastTrades = computed(() =>
   [...tradeList.value].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10),
 )
 
+function countPosCost(portfolio){
+  return positionList.value.filter((p) => p.portfolio == portfolio.id).reduce((total, p) => total + Number(p.instrument_info.current_price) * Number(p.quantity), 0)
+}
+
 onBeforeMount(async () => {
-  const [portfolios, trades] = await Promise.all([
+  const [portfolios, trades, positions] = await Promise.all([
     axios.get('/api/portfolio/'),
     axios.get('/api/trade/'),
+    axios.get('/api/position'),
   ])
   portfoliosList.value = portfolios.data
   tradeList.value = trades.data
+  positionList.value = positions.data
 })
 
 // моковые данные для верстки — заменить на данные из API
@@ -41,6 +48,8 @@ const bestInstruments = [
   { id: 5, ticker: 'EUR/RUB', name: 'Евро', type: 'currency', current_price: '94,12', change: '+0,48%', isUp: true, spark: '0,15 10,16 20,14 30,15 40,13 50,13 60,12 72,11' },
   { id: 6, ticker: 'GAZP', name: 'Газпром', type: 'stock', current_price: '128,90', change: '−0,92%', isUp: false, spark: '0,8 10,9 20,12 30,11 40,15 50,14 60,18 72,20' },
 ]
+
+
 </script>
 
 <template>
@@ -74,7 +83,10 @@ const bestInstruments = [
             v-for="portfolio in portfoliosList"
             :key="portfolio.id"
             :portfolio="portfolio"
+            :value="Number(countPosCost(portfolio)) + Number(portfolio.balance)"
+            :positionsCount="positionList.filter((p) => p.portfolio == portfolio.id).length"
           />
+          
         </div>
         <EmptyState
           v-else

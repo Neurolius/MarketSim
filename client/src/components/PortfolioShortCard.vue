@@ -1,30 +1,16 @@
 <script setup>
-// компактная карточка портфеля для дашборда — по образцу TradeCard
+
 defineProps({
   portfolio: {
     type: Object,
     required: true,
   },
-  // стоимость портфеля: баланс + позиции
   value: {
-    type: String,
-    default: '—',
-  },
-  // изменение стоимости, например '+3,1%'
-  change: {
-    type: String,
-    default: '',
-  },
-  isUp: {
-    type: Boolean,
-    default: true,
+    type: Number,
+    default: 0,
   },
   positionsCount: {
     type: [Number, String],
-    default: '—',
-  },
-  profit: {
-    type: String,
     default: '—',
   },
 })
@@ -37,13 +23,6 @@ defineProps({
   >
     <div class="portfolio-short-card-head">
       <span class="badge badge-exec">Позиций: {{ positionsCount }}</span>
-      <span
-        v-if="change"
-        class="price-change price-change-pill"
-        :class="isUp ? 'is-up' : 'is-down'"
-      >
-        {{ change }}
-      </span>
       <span class="portfolio-short-card-open">Открыть →</span>
     </div>
     <div class="portfolio-short-card-main">
@@ -53,15 +32,12 @@ defineProps({
       </span>
       <div class="portfolio-short-card-info">
         <span class="portfolio-short-card-name">{{ portfolio.name }}</span>
-        <span class="portfolio-short-card-balance">Свободно: {{ portfolio.balance }} ₽</span>
+        <span class="portfolio-short-card-balance">Свободно: {{ portfolio.balance}} ₽</span>
       </div>
       <div class="portfolio-short-card-amount">
         <span class="portfolio-short-card-label">Стоимость</span>
         <span class="portfolio-short-card-value">{{ value }}</span>
       </div>
-    </div>
-    <div class="portfolio-short-card-foot">
-      П/У: <span :class="isUp ? 'text-up' : 'text-down'">{{ profit }}</span>
     </div>
   </router-link>
 </template>
