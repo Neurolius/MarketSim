@@ -36,6 +36,12 @@ const filteredInstrumentsList = computed(() =>
     (i) => !filtersType.value || i.typeId === filtersType.value,
   ),
 );
+const averagePrice = computed(() => {
+  const list = instrumentsList.value;
+  if (!list.length) return 0;
+  const total = list.reduce((acc, i) => acc + (i.rawPrice || 0), 0);
+  return total / list.length;
+});
 </script>
 
 <template>
@@ -68,7 +74,7 @@ const filteredInstrumentsList = computed(() =>
       />
       <StatCard
         label="Средняя цена"
-        value="412 830 ₽"
+        :value="averagePrice"
         hint="медиана 186,40 ₽"
       />
       <StatCard

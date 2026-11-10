@@ -13,11 +13,11 @@ const formatSigned = (v) => {
 const formatDate = (iso) =>
   iso
     ? new Date(iso).toLocaleString("ru-RU", {
-        day: "2-digit",
-        month: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
     : "—";
 
 export function mapInstrument(raw, typesById) {
@@ -33,6 +33,7 @@ export function mapInstrument(raw, typesById) {
     typeName: typesById[raw.instrument_type]?.name ?? "—",
     typeId: raw.instrument_type,
     logo: raw.logo,
+    rawPrice: price,
     price: formatPrice(price),
     diff: formatSigned(diff),
     change: formatSigned(percent) + "%",
