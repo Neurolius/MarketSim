@@ -6,7 +6,7 @@ from market.models import Position, Trade
 class StockMatrketService:
     @classmethod
     def execute_trade(cls, trade):
-        if(trade.execution_type == Trade.Status.pending):
+        if trade.status != Trade.Status.pending:
             return trade
         
         portfolio = trade.portfolio
@@ -22,7 +22,7 @@ class StockMatrketService:
             StockMatrketService.update_position_on_buy(portfolio, instrument, quantity, price)
         else:
             position = Position.objects.filter(portfolio=portfolio, instrument=instrument).first()
-            if(position is not None or position.quantity < quantity):
+            if position is None or position.quantity < quantity:
                 raise NotEnoughQuantity("Недостаточно инструментов для продажи")
             portfolio.balance += total_cost
             StockMatrketService.update_position_on_sell(position, quantity)
@@ -53,11 +53,13 @@ class StockMatrketService:
             possition.save()
 
     @classmethod
-    def check_pending_limit_orders(cls):
+    def check_pending_limit_orders(cls, instrument=None):
         pending_orders = Trade.objects.filter(
             status=Trade.Status.pending, 
             execution_type=Trade.ExecutionType.limit
         )
+        if instrument is not None:
+            pending_orders = pending_orders.filter(instrument=instrument)
         for trade in pending_orders:
             curreint_price = trade.instrument.current_price
             is_order_existed =( (trade.order_type == Trade.OrderType.buy and curreint_price <= trade.price) or 

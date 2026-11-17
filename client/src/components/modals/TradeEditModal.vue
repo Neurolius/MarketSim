@@ -1,6 +1,6 @@
 <script setup>
-import BaseModal from '@/components/BaseModal.vue'
-import ImageUpload from '@/components/ImageUpload.vue'
+import BaseModal from "@/components/BaseModal.vue";
+import ImageUpload from "@/components/ImageUpload.vue";
 
 // trade — заявка из API в статусе «pending»
 defineProps({
@@ -8,21 +8,28 @@ defineProps({
     type: Object,
     required: true,
   },
-})
+});
 
-defineEmits(['close', 'submit', 'cancel-trade'])
+defineEmits(["close", "submit", "cancel-trade"]);
 
-const orderTypeLabels = { buy: 'Покупка', sell: 'Продажа' }
-const executionTypeLabels = { market: 'Рыночная', limit: 'Лимитная' }
+const orderTypeLabels = { buy: "Покупка", sell: "Продажа" };
+const executionTypeLabels = { market: "Рыночная", limit: "Лимитная" };
 </script>
 
 <template>
-  <BaseModal title="Изменить заявку" form @close="$emit('close')" @submit="$emit('submit')">
+  <BaseModal
+    title="Изменить заявку"
+    form
+    @close="$emit('close')"
+    @submit="$emit('submit')"
+  >
     <div class="inline-row trade-badges">
       <span class="badge" :class="`badge-${trade.order_type}`">
         {{ orderTypeLabels[trade.order_type] }}
       </span>
-      <span class="badge badge-exec">{{ executionTypeLabels[trade.execution_type] }}</span>
+      <span class="badge badge-exec">{{
+        executionTypeLabels[trade.execution_type]
+      }}</span>
       <span class="badge badge-pending">Ожидает</span>
       <span class="text-muted text-sm">
         {{ trade.instrument_info?.ticker }} · создана
@@ -33,11 +40,23 @@ const executionTypeLabels = { market: 'Рыночная', limit: 'Лимитна
     <div class="form-row">
       <div class="form-field">
         <label class="form-label" for="trade-qty">Количество</label>
-        <input id="trade-qty" class="form-input" type="number" min="0" :value="trade.quantity" />
+        <input
+          id="trade-qty"
+          class="form-input"
+          type="number"
+          min="0"
+          :value="trade.quantity"
+        />
       </div>
       <div class="form-field">
         <label class="form-label" for="trade-limit">Лимитная цена, ₽</label>
-        <input id="trade-limit" class="form-input" type="number" min="0" :value="trade.price" />
+        <input
+          id="trade-limit"
+          class="form-input"
+          type="number"
+          min="0"
+          :value="trade.price"
+        />
       </div>
     </div>
 
@@ -56,10 +75,16 @@ const executionTypeLabels = { market: 'Рыночная', limit: 'Лимитна
     </div>
 
     <template #footer>
-      <button class="btn btn-danger push-left" type="button" @click="$emit('cancel-trade')">
+      <button
+        class="btn btn-danger push-left"
+        type="button"
+        @click="$emit('cancel-trade')"
+      >
         Отменить заявку
       </button>
-      <button class="btn btn-secondary" type="button" @click="$emit('close')">Закрыть</button>
+      <button class="btn btn-secondary" type="button" @click="$emit('close')">
+        Закрыть
+      </button>
       <button class="btn btn-primary" type="submit">Сохранить</button>
     </template>
   </BaseModal>

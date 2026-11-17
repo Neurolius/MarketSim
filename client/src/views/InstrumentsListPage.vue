@@ -9,16 +9,17 @@ import InstrumentFormModal from "@/components/modals/InstrumentFormModal.vue";
 import useProfileStore from "@/stores/profileStore";
 import axios from "axios";
 import { mapInstrument } from "@/utils/InstrumentsMapper";
+import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal.vue";
+import { formatPrice } from "@/utils/format";
+import { toFormData, errorText } from "@/utils/api";
 
 const profileStore = useProfileStore();
 
-const isInstrumentModalOpen = ref(false);
-
 const instrumentsList = ref([]);
 const typesList = ref([]);
-const filtersType = ref("");
+const isInstrumentModalOpen = ref(false);
 
-onBeforeMount(async () => {
+async function loadInstruments() {
   const [instruments, types] = await Promise.all([
     axios.get("/api/instrument/"),
     axios.get("/api/instrumenttype/"),
@@ -28,20 +29,106 @@ onBeforeMount(async () => {
     mapInstrument(i, typesById),
   );
   typesList.value = types.data;
+}
+
+onBeforeMount(loadInstruments);
+
+const emptyFilters = () => ({
+  search: "",
+  type: "",
+  priceFrom: "",
+  priceTo: "",
+  change: "",
+});
+const filters = ref(emptyFilters());
+
+const filteredInstrumentsList = computed(() => {
+  const f = filters.value;
+  const search = f.search.trim().toLowerCase();
+  return instrumentsList.value.filter(
+    (i) =>
+      (!search ||
+        i.ticker.toLowerCase().includes(search) ||
+        i.name.toLowerCase().includes(search)) &&
+      (!f.type || i.typeId === f.type) &&
+      (f.priceFrom === "" || i.rawPrice >= f.priceFrom) &&
+      (f.priceTo === "" || i.rawPrice <= f.priceTo) &&
+      (!f.change || (f.change === "up" ? i.rawChange > 0 : i.rawChange < 0)),
+  );
 });
 
-const instrumentsCount = computed(() => instrumentsList.value.length);
-const filteredInstrumentsList = computed(() =>
-  instrumentsList.value.filter(
-    (i) => !filtersType.value || i.typeId === filtersType.value,
-  ),
-);
-const averagePrice = computed(() => {
+function resetFilters() {
+  filters.value = emptyFilters();
+}
+
+const priceStats = computed(() => {
   const list = instrumentsList.value;
-  if (!list.length) return 0;
-  const total = list.reduce((acc, i) => acc + (i.rawPrice || 0), 0);
-  return total / list.length;
+  if (!list.length) return null;
+  const prices = list.map((i) => i.rawPrice).sort((a, b) => a - b);
+  const mid = Math.floor(prices.length / 2);
+  return {
+    avg: prices.reduce((sum, p) => sum + p, 0) / prices.length,
+    median:
+      prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2,
+    cheapest: list.reduce((a, b) => (b.rawPrice < a.rawPrice ? b : a)),
+    priciest: list.reduce((a, b) => (b.rawPrice > a.rawPrice ? b : a)),
+  };
 });
+
+const upCount = computed(
+  () => instrumentsList.value.filter((i) => i.rawChange > 0).length,
+);
+const downCount = computed(
+  () => instrumentsList.value.filter((i) => i.rawChange < 0).length,
+);
+
+const countByType = computed(() =>
+  typesList.value.map((t) => ({
+    name: t.name,
+    count: instrumentsList.value.filter((i) => i.typeId === t.id).length,
+  })),
+);
+const editingInstrument = ref(null);
+const deletingInstrument = ref(null);
+const formError = ref("");
+const isSaving = ref(false);
+
+function openCreate() {
+  editingInstrument.value = null;
+  formError.value = "";
+  isInstrumentModalOpen.value = true;
+}
+
+function openEdit(instrument) {
+  editingInstrument.value = instrument;
+  formError.value = "";
+  isInstrumentModalOpen.value = true;
+}
+
+async function saveInstrument(data) {
+  formError.value = "";
+  isSaving.value = true;
+  try {
+    const body = toFormData(data);
+    if (editingInstrument.value) {
+      await axios.patch(`/api/instrument/${editingInstrument.value.id}/`, body);
+    } else {
+      await axios.post("/api/instrument/", body);
+    }
+    isInstrumentModalOpen.value = false;
+    await loadInstruments();
+  } catch (e) {
+    formError.value = errorText(e);
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+async function deleteInstrument() {
+  await axios.delete(`/api/instrument/${deletingInstrument.value.id}/`);
+  deletingInstrument.value = null;
+  await loadInstruments();
+}
 </script>
 
 <template>
@@ -55,11 +142,7 @@ const averagePrice = computed(() => {
         </p>
       </div>
       <div v-if="profileStore.isSuperuser" class="page-actions">
-        <button
-          class="btn btn-primary"
-          type="button"
-          @click="isInstrumentModalOpen = true"
-        >
+        <button class="btn btn-primary" type="button" @click="openCreate">
           <AppIcon name="plus" />
           Добавить инструмент
         </button>
@@ -69,36 +152,53 @@ const averagePrice = computed(() => {
     <section class="stats-grid" aria-label="Статистика">
       <StatCard
         label="Инструментов"
-        :value="instrumentsCount"
+        :value="instrumentsList.length"
         :hint="`по текущему фильтру: ${filteredInstrumentsList.length}`"
       />
       <StatCard
         label="Средняя цена"
-        :value="averagePrice"
-        hint="медиана 186,40 ₽"
+        :value="priceStats ? `${formatPrice(priceStats.avg)} ₽` : '-'"
+        :hint="priceStats ? `медиана ${formatPrice(priceStats.median)} ₽` : ''"
       />
       <StatCard
         label="Мин / макс цена"
-        value="0,87 / 8,9 млн ₽"
-        hint="DOGE / BTC"
+        :value="
+          priceStats
+            ? `${formatPrice(priceStats.cheapest.rawPrice)} / ${formatPrice(priceStats.priciest.rawPrice)} ₽`
+            : '—'
+        "
+        :hint="
+          priceStats
+            ? `${priceStats.cheapest.ticker} / ${priceStats.priciest.ticker}`
+            : ''
+        "
       />
       <StatCard label="Растут / падают" hint="за последние 24 часа">
-        <span class="text-up">31</span> / <span class="text-down">17</span>
+        <span class="text-up">{{ upCount }}</span> /
+        <span class="text-down">{{ downCount }}</span>
       </StatCard>
       <StatCard
         label="По типам"
-        value="26 · 14 · 8"
-        hint="акции · крипто · валюты"
+        :value="countByType.map((t) => t.count).join(' · ')"
+        :hint="countByType.map((t) => t.name.toLowerCase()).join(' · ')"
       />
     </section>
 
     <section class="card">
       <div class="table-toolbar">
         <h2 class="table-toolbar-title">
-          Каталог <span class="table-count">12 из 48</span>
+          Каталог
+          <span class="table-count"
+            >{{ filteredInstrumentsList.length }} из
+            {{ instrumentsList.length }}</span
+          >
         </h2>
         <div class="export-actions">
-          <button class="btn btn-ghost btn-sm" type="button">
+          <button
+            class="btn btn-ghost btn-sm"
+            type="button"
+            @click="resetFilters"
+          >
             Сбросить фильтры
           </button>
           <ExportButtons />
@@ -123,6 +223,7 @@ const averagePrice = computed(() => {
                 >
                 <input
                   id="f-ticker"
+                  v-model="filters.search"
                   class="filter-input"
                   type="search"
                   placeholder="Тикер или название"
@@ -130,7 +231,11 @@ const averagePrice = computed(() => {
               </th>
               <th>
                 <label class="visually-hidden" for="f-type">Тип</label>
-                <select id="f-type" class="filter-select" v-model="filtersType">
+                <select
+                  id="f-type"
+                  class="filter-select"
+                  v-model="filters.type"
+                >
                   <option value="">Все типы</option>
                   <option
                     v-for="type in typesList"
@@ -148,17 +253,23 @@ const averagePrice = computed(() => {
                     type="number"
                     placeholder="от"
                     aria-label="Цена от"
+                    v-model.number="filters.priceFrom"
                   />
                   <input
                     class="filter-input"
                     type="number"
                     placeholder="до"
                     aria-label="Цена до"
+                    v-model.number="filters.priceTo"
                   />
                 </div>
               </th>
               <th>
-                <select class="filter-select" aria-label="Изменение">
+                <select
+                  class="filter-select"
+                  aria-label="Изменение"
+                  v-model="filters.change"
+                >
                   <option value="">Любое</option>
                   <option value="up">Рост</option>
                   <option value="down">Падение</option>
@@ -184,7 +295,8 @@ const averagePrice = computed(() => {
                 <div class="cell-instrument">
                   <InstrumentLogo
                     :ticker="instrument.ticker"
-                    :type="instrument.type"
+                    :logo="instrument.logo"
+                    :zoomable="false"
                   />
                   <span class="cell-instrument-text">
                     <router-link
@@ -222,36 +334,65 @@ const averagePrice = computed(() => {
               </td>
               <td class="text-muted text-sm num">{{ instrument.updated }}</td>
               <td class="col-actions">
-                <router-link
-                  :to="{ name: 'instrument', params: { id: instrument.id } }"
-                  class="btn btn-buy btn-sm"
-                >
-                  Купить
-                </router-link>
+                <div class="inline-row">
+                  <router-link
+                    :to="{ name: 'instrument', params: { id: instrument.id } }"
+                    class="btn btn-buy btn-sm"
+                  >
+                    Купить
+                  </router-link>
+                  <template v-if="profileStore.isSuperuser">
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      type="button"
+                      aria-label="Изменить"
+                      @click="openEdit(instrument)"
+                    >
+                      <AppIcon name="edit" />
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      type="button"
+                      aria-label="Удалить"
+                      @click="deletingInstrument = instrument"
+                    >
+                      <AppIcon name="trash" />
+                    </button>
+                  </template>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!filteredInstrumentsList.length">
+              <td colspan="7" class="text-muted">
+                Ничего не найдено — попробуйте изменить фильтры
               </td>
             </tr>
           </tbody>
         </table>
       </div>
       <div class="table-footer">
-        <span>Показано 1–10 из 12</span>
-        <nav class="pagination" aria-label="Страницы">
-          <button class="pagination-btn" type="button" aria-label="Предыдущая">
-            ‹
-          </button>
-          <button class="pagination-btn is-active" type="button">1</button>
-          <button class="pagination-btn" type="button">2</button>
-          <button class="pagination-btn" type="button" aria-label="Следующая">
-            ›
-          </button>
-        </nav>
+        <span
+          >Показано {{ filteredInstrumentsList.length }} из
+          {{ instrumentsList.length }}</span
+        >
       </div>
     </section>
   </main>
 
   <InstrumentFormModal
     v-if="isInstrumentModalOpen"
-    :instrument-types="instrumentTypes"
+    :instrument="editingInstrument"
+    :instrument-types="typesList"
+    :error="formError"
+    :loading="isSaving"
     @close="isInstrumentModalOpen = false"
+    @submit="saveInstrument"
+  />
+  <ConfirmDeleteModal
+    v-if="deletingInstrument"
+    :title="`Удалить ${deletingInstrument.ticker}?`"
+    text="Вместе с инструментом удалятся его история цен, сделки и позиции во всех портфелях."
+    @close="deletingInstrument = null"
+    @confirm="deleteInstrument"
   />
 </template>

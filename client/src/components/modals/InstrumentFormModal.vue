@@ -1,20 +1,61 @@
 <script setup>
-import BaseModal from '@/components/BaseModal.vue'
-import ImageUpload from '@/components/ImageUpload.vue'
+import { computed, onBeforeUnmount, ref } from "vue";
+import AppIcon from "@/components/AppIcon.vue";
+import BaseModal from "@/components/BaseModal.vue";
+import ImageUpload from "@/components/ImageUpload.vue";
 
-// instrument — редактируемый инструмент; без него модалка работает как «Новый инструмент»
-defineProps({
-  instrument: {
-    type: Object,
-    default: null,
-  },
-  instrumentTypes: {
-    type: Array,
-    default: () => [],
-  },
-})
+const props = defineProps({
+  instrument: { type: Object, default: null },
+  instrumentTypes: { type: Array, default: () => [] },
+  error: { type: String, default: "" },
+  loading: { type: Boolean, default: false },
+});
+const emit = defineEmits(["close", "submit"]);
 
-defineEmits(['close', 'submit', 'open-logo'])
+const ticker = ref(props.instrument?.ticker ?? "");
+const name = ref(props.instrument?.name ?? "");
+const typeId = ref(
+  props.instrument?.typeId ?? props.instrumentTypes[0]?.id ?? null,
+);
+const price = ref(props.instrument?.rawPrice ?? null);
+const logoFile = ref(null);
+const logoPreview = ref(props.instrument?.logo ?? "");
+
+function onLogoChange(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  logoFile.value = file;
+  if (logoPreview.value.startsWith("blob:"))
+    URL.revokeObjectURL(logoPreview.value);
+  logoPreview.value = URL.createObjectURL(file);
+}
+
+onBeforeUnmount(() => {
+  if (logoPreview.value.startsWith("blob:"))
+    URL.revokeObjectURL(logoPreview.value);
+});
+
+const canSubmit = computed(
+  () =>
+    ticker.value.trim() &&
+    name.value.trim() &&
+    typeId.value &&
+    price.value !== null &&
+    price.value !== "" &&
+    price.value >= 0 &&
+    !props.loading,
+);
+
+function submit() {
+  if (!canSubmit.value) return;
+  emit("submit", {
+    ticker: ticker.value.trim().toUpperCase(),
+    name: name.value.trim(),
+    instrument_type: typeId.value,
+    current_price: price.value,
+    logo: logoFile.value,
+  });
+}
 </script>
 
 <template>
@@ -22,27 +63,26 @@ defineEmits(['close', 'submit', 'open-logo'])
     :title="instrument ? 'Изменить инструмент' : 'Новый инструмент'"
     form
     @close="$emit('close')"
-    @submit="$emit('submit')"
+    @submit="submit"
   >
     <div class="form-row">
       <div class="form-field">
         <label class="form-label" for="instrument-ticker">Тикер</label>
         <input
           id="instrument-ticker"
+          v-model="ticker"
           class="form-input"
           type="text"
           placeholder="SBER"
-          :value="instrument?.ticker"
         />
       </div>
       <div class="form-field">
         <label class="form-label" for="instrument-type">Тип</label>
-        <select id="instrument-type" class="form-select">
+        <select id="instrument-type" v-model="typeId" class="form-select">
           <option
             v-for="type in instrumentTypes"
             :key="type.id"
             :value="type.id"
-            :selected="type.id === instrument?.instrument_type"
           >
             {{ type.name }}
           </option>
@@ -53,40 +93,48 @@ defineEmits(['close', 'submit', 'open-logo'])
       <label class="form-label" for="instrument-name">Название</label>
       <input
         id="instrument-name"
+        v-model="name"
         class="form-input"
         type="text"
         placeholder="Сбербанк"
-        :value="instrument?.name"
       />
     </div>
     <div class="form-field">
       <label class="form-label" for="instrument-price">Текущая цена, ₽</label>
       <input
         id="instrument-price"
+        v-model.number="price"
         class="form-input"
         type="number"
         min="0"
         step="any"
-        :value="instrument?.current_price"
       />
-      <!-- при ошибке: class="form-input is-invalid" + <span class="form-error-text">…</span> -->
     </div>
     <div class="form-field">
       <span class="form-label">Логотип</span>
       <ImageUpload
         id="instrument-logo"
-        :preview-url="instrument?.logo ?? ''"
+        :preview-url="logoPreview"
         round
         :icon="''"
         text=""
         hint="Квадратное изображение"
-        @open-preview="$emit('open-logo')"
+        @change="onLogoChange"
       />
     </div>
 
+    <div v-if="error" class="alert alert-error" role="alert">
+      <AppIcon name="alert" />
+      <span>{{ error }}</span>
+    </div>
+
     <template #footer>
-      <button class="btn btn-secondary" type="button" @click="$emit('close')">Отмена</button>
-      <button class="btn btn-primary" type="submit">{{ instrument ? 'Сохранить' : 'Создать' }}</button>
+      <button class="btn btn-secondary" type="button" @click="$emit('close')">
+        Отмена
+      </button>
+      <button class="btn btn-primary" type="submit" :disabled="!canSubmit">
+        {{ instrument ? "Сохранить" : "Создать" }}
+      </button>
     </template>
   </BaseModal>
 </template>

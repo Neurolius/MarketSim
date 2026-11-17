@@ -1,11 +1,10 @@
 <script setup>
-import { computed } from 'vue'
+import { computed } from "vue";
 
 const props = defineProps({
-  // точки линии в координатах width×height, например '0,160 40,150 …'
   points: {
     type: String,
-    default: '',
+    default: "",
   },
   width: {
     type: Number,
@@ -31,27 +30,29 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-})
+});
 
-const top = 20
-const baseline = computed(() => props.height - 22)
+const top = 20;
+const baseline = computed(() => props.height - 22);
 
 const gridLines = computed(() => {
-  const count = Math.max(props.yLabels.length, 2)
-  const step = (baseline.value - top) / (count - 1)
-  return Array.from({ length: count }, (_, i) => top + i * step)
-})
+  const count = Math.max(props.yLabels.length, 2);
+  const step = (baseline.value - top) / (count - 1);
+  return Array.from({ length: count }, (_, i) => top + i * step);
+});
 
 const areaPath = computed(() => {
-  if (!props.points) return ''
-  const line = props.points.trim().split(/\s+/).join(' L')
-  return `M${line} L${props.width},${baseline.value} L0,${baseline.value} Z`
-})
+  if (!props.points) return "";
+  const line = props.points.trim().split(/\s+/).join(" L");
+  return `M${line} L${props.width},${baseline.value} L0,${baseline.value} Z`;
+});
 </script>
 
 <template>
   <div class="chart-box" :class="{ 'chart-box-lg': large }">
-    <div v-if="!points" class="chart-placeholder">Нет данных за выбранный период</div>
+    <div v-if="!points" class="chart-placeholder">
+      Нет данных за выбранный период
+    </div>
     <template v-else>
       <svg
         class="chart-svg"
@@ -60,16 +61,27 @@ const areaPath = computed(() => {
         aria-hidden="true"
       >
         <g class="chart-grid">
-          <line v-for="y in gridLines" :key="y" x1="0" :y1="y" :x2="width" :y2="y" />
+          <line
+            v-for="y in gridLines"
+            :key="y"
+            x1="0"
+            :y1="y"
+            :x2="width"
+            :y2="y"
+          />
         </g>
         <path class="chart-area" :class="{ 'is-down': !isUp }" :d="areaPath" />
-        <polyline class="chart-line" :class="{ 'is-down': !isUp }" :points="points" />
+        <polyline
+          class="chart-line"
+          :class="{ 'is-down': !isUp }"
+          :points="points"
+        />
       </svg>
       <div v-if="yLabels.length" class="chart-y-labels">
-        <span v-for="label in yLabels" :key="label">{{ label }}</span>
+        <span v-for="(label, index) in yLabels" :key="index">{{ label }}</span>
       </div>
       <div v-if="xLabels.length" class="chart-x-labels">
-        <span v-for="label in xLabels" :key="label">{{ label }}</span>
+        <span v-for="(label, index) in xLabels" :key="index">{{ label }}</span>
       </div>
     </template>
   </div>

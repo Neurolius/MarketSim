@@ -1,24 +1,63 @@
 <script setup>
-import BaseModal from '@/components/BaseModal.vue'
-import InstrumentLogo from '@/components/InstrumentLogo.vue'
+import { computed, ref } from "vue";
+import BaseModal from "@/components/BaseModal.vue";
+import InstrumentLogo from "@/components/InstrumentLogo.vue";
+import AppIcon from "@/components/AppIcon.vue";
+import { formatPrice, formatQuantity, formatSigned } from "@/utils/format";
 
-// position — позиция из API (instrument_info, quantity, average_price)
-defineProps({
+const props = defineProps({
   position: {
     type: Object,
     required: true,
   },
   portfolioName: {
     type: String,
-    default: '',
+    default: "",
   },
-  isLimit: {
+  error: {
+    type: String,
+    default: "",
+  },
+  loading: {
     type: Boolean,
     default: false,
   },
-})
+});
 
-defineEmits(['close', 'submit', 'change-execution'])
+const emit = defineEmits(["close", "submit"]);
+
+const executionType = ref("market");
+const quantity = ref(null);
+const limitPrice = ref(null);
+
+const isLimit = computed(() => executionType.value === "limit");
+const maxQuantity = computed(() => Number(props.position.quantity));
+const avarage = computed(() => Number(props.position.average_price));
+const unitPrice = computed(() =>
+  isLimit.value
+    ? Number(limitPrice.value) || 0
+    : Number(props.position.instrument_info.current_price),
+);
+const qty = computed(() => Number(quantity.value) || 0);
+const revenue = computed(() => qty.value * unitPrice.value);
+const result = computed(() => (unitPrice.value - avarage.value) * qty.value);
+
+const canSubmit = computed(
+  () =>
+    qty.value > 0 &&
+    qty.value <= maxQuantity.value &&
+    (!isLimit.value || limitPrice.value > 0) &&
+    !props.loading,
+);
+
+function submit() {
+  if (!canSubmit.value) return;
+  emit("submit", {
+    execution_type: executionType.value,
+    quantity: quantity.value,
+    price: isLimit.value ? limitPrice.value : null,
+  });
+}
 </script>
 
 <template>
@@ -26,7 +65,7 @@ defineEmits(['close', 'submit', 'change-execution'])
     :title="`Продать ${position.instrument_info.ticker}`"
     form
     @close="$emit('close')"
-    @submit="$emit('submit')"
+    @submit="submit"
   >
     <div class="cell-instrument">
       <InstrumentLogo
@@ -36,21 +75,26 @@ defineEmits(['close', 'submit', 'change-execution'])
       />
       <span class="cell-instrument-text">
         <span class="cell-instrument-ticker">
-          {{ position.instrument_info.ticker }} · {{ position.instrument_info.current_price }} ₽
+          {{ position.instrument_info.ticker }} ·
+          {{ formatPrice(position.instrument_info.current_price) }} ₽
         </span>
         <span class="cell-instrument-name">
-          В портфеле «{{ portfolioName }}»: {{ position.quantity }} шт, ср. цена
-          {{ position.average_price }} ₽
+          В портфеле «{{ portfolioName }}»: {{ formatQuantity(maxQuantity) }} шт,
+          ср. цена {{ formatPrice(avarage) }} ₽
         </span>
       </span>
     </div>
 
-    <div class="segmented segmented-block" role="group" aria-label="Тип исполнения">
+    <div
+      class="segmented segmented-block"
+      role="group"
+      aria-label="Тип исполнения"
+    >
       <button
         class="segmented-btn"
         :class="{ 'is-active': !isLimit }"
         type="button"
-        @click="$emit('change-execution', 'market')"
+        @click="executionType = 'market'"
       >
         Рыночная
       </button>
@@ -58,7 +102,7 @@ defineEmits(['close', 'submit', 'change-execution'])
         class="segmented-btn"
         :class="{ 'is-active': isLimit }"
         type="button"
-        @click="$emit('change-execution', 'limit')"
+        @click="executionType = 'limit'"
       >
         Лимитная
       </button>
@@ -69,20 +113,26 @@ defineEmits(['close', 'submit', 'change-execution'])
         <label class="form-label" for="sell-qty">Количество</label>
         <input
           id="sell-qty"
+          v-model.number="quantity"
           class="form-input"
           type="number"
           min="0"
-          :max="position.quantity"
+          step="any"
+          :max="maxQuantity"
         />
-        <span class="form-hint">Максимум {{ position.quantity }}</span>
+        <span class="form-hint"
+          >Максимум {{ formatQuantity(maxQuantity) }}</span
+        >
       </div>
       <div class="form-field">
         <label class="form-label" for="sell-limit">Лимитная цена, ₽</label>
         <input
           id="sell-limit"
           class="form-input"
+          v-model.number="limitPrice"
           type="number"
           min="0"
+          step="any"
           :disabled="!isLimit"
           :placeholder="isLimit ? '' : '—'"
         />
@@ -92,18 +142,27 @@ defineEmits(['close', 'submit', 'change-execution'])
     <div class="order-summary">
       <div class="order-summary-row">
         <span class="text-muted">Выручка</span>
-        <span class="num">—</span>
+        <span class="num">{{ formatPrice(revenue) }} ₽</span>
       </div>
       <div class="order-summary-row">
         <span class="text-muted">Ожидаемый результат</span>
-        <span class="price-change is-up">—</span>
+        <span class="price-change" :class="result >= 0 ? 'is-up' : 'is-down'"
+          >{{ formatSigned(result) }} ₽</span
+        >
       </div>
     </div>
 
+    <div v-if="error" class="alert alert-error" role="alert">
+      <AppIcon name="alert" />
+      <span>{{ error }}</span>
+    </div>
+
     <template #footer>
-      <button class="btn btn-secondary" type="button" @click="$emit('close')">Отмена</button>
-      <button class="btn btn-sell" type="submit">
-        {{ isLimit ? 'Выставить заявку' : 'Продать' }}
+      <button class="btn btn-secondary" type="button" @click="$emit('close')">
+        Отмена
+      </button>
+      <button class="btn btn-sell" type="submit" :disabled="!canSubmit">
+        {{ isLimit ? "Выставить заявку" : "Продать" }}
       </button>
     </template>
   </BaseModal>

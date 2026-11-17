@@ -45,6 +45,8 @@ class Instrument(models.Model):
 
         if price_changed:
             PriceHistory.objects.create(instrument=self, price=self.current_price)
+            from market.service import StockMatrketService
+            StockMatrketService.check_pending_limit_orders(instrument=self)
 
     def __str__(self):
         return self.ticker

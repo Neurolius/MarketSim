@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onBeforeMount } from "vue";
-import { useRoute } from "vue-router";
+import { ref, onBeforeMount, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import InstrumentLogo from "@/components/InstrumentLogo.vue";
 import PriceChart from "@/components/PriceChart.vue";
@@ -10,104 +10,173 @@ import ImageModal from "@/components/modals/ImageModal.vue";
 import SellModal from "@/components/modals/SellModal.vue";
 import axios from "axios";
 
+import { mapInstrument } from "@/utils/InstrumentsMapper";
+import {
+  formatPrice,
+  formatQuantity,
+  formatSigned,
+  formatDate,
+} from "@/utils/format";
+import { buildChart } from "@/utils/chart";
+import { toFormData, errorText } from "@/utils/api";
+
 const isLogoModalOpen = ref(false);
 const sellPosition = ref(null);
 const portfolioList = ref([]);
 const instrumentTrade = ref(null);
 const route = useRoute();
+const router = useRouter();
+const positionList = ref([]);
+const priceHistoryList = ref([]);
 
 onBeforeMount(async () => {
-  const [instrument, type, portfolios, priceHistory, positions] =
-    await Promise.all([
-      axios.get(`/api/instrument/${route.params.id}/`),
-      axios.get("/api/instrumenttype/"),
-      axios.get("/api/portfolio/"),
-      axios.get("/api/pricehistory"),
-      axios.get("/api/position"),
-    ]);
+  const id = route.params.id;
+  const [instrument, type, portfolios, history, positions] = await Promise.all([
+    axios.get(`/api/instrument/${id}/`, {
+      params: { period: "day" },
+    }),
+    axios.get("/api/instrumenttype/"),
+    axios.get("/api/portfolio/"),
+    axios.get("/api/pricehistory/", { params: { instrument: id } }),
+    axios.get("/api/position/", { params: { instrument: id } }),
+  ]);
+  const typesById = Object.fromEntries(type.data.map((t) => [t.id, t]));
+  instrumentTrade.value = mapInstrument(instrument.data, typesById);
   portfolioList.value = portfolios.data;
-  instrumentTrade.value = {
-    id: instrument.data.id,
-    ticker: instrument.data.ticker,
-    name: instrument.data.name,
-    type: type.data.filter((i) => i.id == instrument.data.instrument_type).id,
-    typeName: type.data.filter((i) => i.id == instrument.data.instrument_type)
-      .name,
-    current_price: instrument.data.current_price,
-    logo: instrument.data.logo,
+  priceHistoryList.value = history.data;
+  positionList.value = positions.data;
+});
+
+const positionRows = computed(() => {
+  const portfoliosById = Object.fromEntries(
+    portfolioList.value.map((p) => [p.id, p]),
+  );
+  const currentPrice = instrumentTrade.value?.rawPrice ?? 0;
+  return positionList.value.map((p) => {
+    const quantity = Number(p.quantity);
+    const avarage = Number(p.average_price);
+    const profit = quantity * (currentPrice - avarage);
+    const percent = avarage ? (currentPrice / avarage - 1) * 100 : 0;
+    return {
+      ...p,
+      portfolioName: portfoliosById[p.portfolio]?.name ?? "—",
+      quantityText: formatQuantity(quantity),
+      averageText: formatPrice(avarage),
+      profitText: `${formatSigned(profit)} ₽ (${formatSigned(percent)}%)`,
+      isUp: profit >= 0,
+    };
+  });
+});
+
+const historyRows = computed(() =>
+  priceHistoryList.value.map((record, i, list) => {
+    const price = Number(record.price);
+    const older = list[i + 1];
+    const percent = older ? (price / Number(older.price) - 1) * 100 : 0;
+    return {
+      id: record.id,
+      timestamp: formatDate(record.timestamp),
+      price: formatPrice(price),
+      change: formatSigned(percent) + "%",
+      isUp: percent >= 0,
+    };
+  }),
+);
+
+const historyStats = computed(() => {
+  const prices = priceHistoryList.value.map((r) => Number(r.price));
+  if (!prices.length) return null;
+  return {
+    avg: prices.reduce((sum, p) => sum + p, 0) / prices.length,
+    min: Math.min(...prices),
+    max: Math.max(...prices),
   };
 });
 
-// моковые данные для верстки — заменить на данные из API
-// const instrument = {
-//   id: 7,
-//   ticker: "SBER",
-//   name: "Сбербанк",
-//   type: "stock",
-//   typeName: "Акция",
-//   current_price: "312,45",
-//   logo: null,
-// };
+const chartPeriods = [
+  { label: "1Д", days: 1 },
+  { label: "1Н", days: 7 },
+  { label: "1М", days: 30 },
+  { label: "3М", days: 90 },
+  { label: "1Г", days: 365 },
+  { label: "Всё", days: null },
+];
+const chartPeriod = ref(chartPeriods[2]);
 
-const positions = [
-  {
-    id: 1,
-    portfolio: 1,
-    portfolioName: "Основной",
-    instrument_info: instrumentTrade,
-    quantity: "150",
-    average_price: "276,30",
-    profit: "+5 422,50 ₽ (+13,08%)",
-    isUp: true,
-  },
-  {
-    id: 2,
-    portfolio: 3,
-    portfolioName: "Валютный",
-    instrument_info: instrumentTrade,
-    quantity: "10",
-    average_price: "318,00",
-    profit: "−55,50 ₽ (−1,75%)",
-    isUp: false,
-  },
-];
-const priceHistory = [
-  {
-    id: 1,
-    timestamp: "21.10.2026, 14:35",
-    price: "312,45",
-    change: "+0,42%",
-    isUp: true,
-  },
-  {
-    id: 2,
-    timestamp: "21.10.2026, 10:00",
-    price: "311,14",
-    change: "+1,64%",
-    isUp: true,
-  },
-  {
-    id: 3,
-    timestamp: "20.10.2026, 18:45",
-    price: "306,11",
-    change: "−0,38%",
-    isUp: false,
-  },
-  {
-    id: 4,
-    timestamp: "20.10.2026, 10:00",
-    price: "307,28",
-    change: "+0,91%",
-    isUp: true,
-  },
-];
-const chartPoints =
-  "0,250 36,240 72,256 108,232 144,238 180,212 216,220 252,196 288,206 324,184 360,198 396,176 432,160 468,170 504,148 540,156 576,130 612,142 648,118 684,124 720,100 756,112 792,86 828,92 864,70 900,62";
+const chart = computed(() => {
+  const days = chartPeriod.value.days;
+  const since = days ? Date.now() - days * 24 * 60 * 60 * 1000 : 0;
+  const records = priceHistoryList.value
+    .filter((r) => new Date(r.timestamp).getTime() >= since)
+    .reverse();
+  return buildChart(records, 900, 340);
+});
+
+const chartChange = computed(() =>
+  chart.value ? (chart.value.last / chart.value.first - 1) * 100 : 0,
+);
+
+const buyForm = ref(null);
+const buyError = ref("");
+const sellError = ref("");
+const isSubmitting = ref(false);
+
+async function reloadPortfolios() {
+  const [portfolios, positions] = await Promise.all([
+    axios.get("/api/portfolio/"),
+    axios.get("/api/position/", { params: { instrument: route.params.id } }),
+  ]);
+  positionList.value = positions.data;
+  portfolioList.value = portfolios.data;
+}
+
+async function createTrade(data) {
+  await axios.post(
+    "/api/trade/",
+    toFormData({ ...data, instrument: instrumentTrade.value.id }),
+  );
+  await reloadPortfolios();
+}
+
+async function onBuy(data) {
+  buyError.value = "";
+  isSubmitting.value = true;
+  try {
+    await createTrade({ ...data, order_type: "buy" });
+    buyForm.value.reset();
+  } catch (e) {
+    buyError.value = errorText(e);
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
+function openSell(position) {
+  sellError.value = "";
+  sellPosition.value = position;
+}
+
+async function onSell(data) {
+  sellError.value = "";
+  isSubmitting.value = true;
+  try {
+    await createTrade({
+      ...data,
+      portfolio: sellPosition.value.portfolio,
+      order_type: "sell",
+    });
+    sellPosition.value = null;
+  } catch (e) {
+    sellError.value = errorText(e);
+  } finally {
+    isSubmitting.value = false;
+  }
+}
 </script>
 
 <template>
   <HeaderNavbar />
-  <main class="page">
+  <main v-if="instrumentTrade" class="page">
     <nav class="breadcrumbs" aria-label="Навигационная цепочка">
       <router-link :to="{ name: 'instruments' }">Инструменты</router-link>
       <span class="breadcrumbs-sep">/</span>
@@ -129,14 +198,19 @@ const chartPoints =
         </h1>
         <div class="inline-row instrument-hero-meta">
           <span class="badge badge-type">{{ instrumentTrade.typeName }}</span>
-          <span class="text-muted text-sm">Обновлено 21.10.2026, 14:35</span>
+          <span class="text-muted text-sm"
+            >Обновлено {{ instrumentTrade.updated }}</span
+          >
         </div>
       </div>
       <div class="instrument-hero-price">
-        <span class="instrument-hero-value"
-          >{{ instrumentTrade.current_price }} ₽</span
+        <span class="instrument-hero-value">{{ instrumentTrade.price }} ₽</span>
+        <span
+          class="price-change"
+          :class="instrumentTrade.isUp ? 'is-up' : 'is-down'"
         >
-        <span class="price-change is-up">+6,34 ₽ (+2,07%) за день</span>
+          {{ instrumentTrade.diff }} ₽ ({{ instrumentTrade.change }}) за день
+        </span>
       </div>
     </section>
 
@@ -145,45 +219,62 @@ const chartPoints =
         <div class="card-header">
           <h2 class="card-title">График цены</h2>
           <div class="segmented" role="group" aria-label="Таймфрейм">
-            <button class="segmented-btn" type="button">1Д</button>
-            <button class="segmented-btn" type="button">1Н</button>
-            <button class="segmented-btn is-active" type="button">1М</button>
-            <button class="segmented-btn" type="button">3М</button>
-            <button class="segmented-btn" type="button">1Г</button>
-            <button class="segmented-btn" type="button">Всё</button>
+            <button
+              v-for="period in chartPeriods"
+              :key="period.label"
+              class="segmented-btn"
+              :class="{ 'is-active': chartPeriod === period }"
+              type="button"
+              @click="chartPeriod = period"
+            >
+              {{ period.label }}
+            </button>
           </div>
         </div>
         <div class="card-body">
           <PriceChart
-            :points="chartPoints"
+            :points="chart?.points ?? ''"
             :width="900"
             :height="340"
-            :y-labels="['320', '310', '300', '290', '280']"
-            :x-labels="['21 сен', '28 сен', '5 окт', '12 окт', '21 окт']"
+            :y-labels="chart?.yLabels ?? []"
+            :x-labels="chart?.xLabels ?? []"
+            :is-up="chartChange >= 0"
             large
           />
         </div>
-        <div class="chart-meta">
+        <div v-if="chart" class="chart-meta">
           <div>
             <div class="meta-label">Открытие периода</div>
-            <div class="num text-strong">284,10 ₽</div>
+            <div class="num text-strong">{{ formatPrice(chart?.first) }} ₽</div>
           </div>
           <div>
             <div class="meta-label">Минимум</div>
-            <div class="num text-strong">281,75 ₽</div>
+            <div class="num text-strong">{{ formatPrice(chart?.min) }} ₽</div>
           </div>
           <div>
             <div class="meta-label">Максимум</div>
-            <div class="num text-strong">313,20 ₽</div>
+            <div class="num text-strong">{{ formatPrice(chart?.max) }} ₽</div>
           </div>
           <div>
             <div class="meta-label">Изменение за период</div>
-            <div class="price-change is-up">+9,98%</div>
+            <div
+              class="price-change"
+              :class="chartChange >= 0 ? 'is-up' : 'is-down'"
+            >
+              {{ formatSigned(chartChange) }}%
+            </div>
           </div>
         </div>
       </section>
 
-      <BuyForm :instrument="instrumentTrade" :portfolios="portfolioList" />
+      <BuyForm
+        ref="buyForm"
+        :instrument="instrumentTrade"
+        :portfolios="portfolioList"
+        :error="buyError"
+        :loading="isSubmitting"
+        @submit="onBuy"
+      />
     </div>
 
     <div class="grid-2">
@@ -205,7 +296,12 @@ const chartPoints =
               </tr>
             </thead>
             <tbody>
-              <tr v-for="position in positions" :key="position.id">
+              <tr v-if="!positionRows.length">
+                <td colspan="5" class="text-muted">
+                  В ваших портфелях нет этого инструмента
+                </td>
+              </tr>
+              <tr v-for="position in positionRows" :key="position.id">
                 <td>
                   <router-link
                     :to="{
@@ -216,21 +312,21 @@ const chartPoints =
                     {{ position.portfolioName }}
                   </router-link>
                 </td>
-                <td class="col-num num">{{ position.quantity }}</td>
-                <td class="col-num num">{{ position.average_price }} ₽</td>
+                <td class="col-num num">{{ position.quantityText }}</td>
+                <td class="col-num num">{{ position.averageText }} ₽</td>
                 <td class="col-num">
                   <span
                     class="price-change"
                     :class="position.isUp ? 'is-up' : 'is-down'"
                   >
-                    {{ position.profit }}
+                    {{ position.profitText }}
                   </span>
                 </td>
                 <td class="col-actions">
                   <button
                     class="btn btn-sell btn-sm"
                     type="button"
-                    @click="sellPosition = position"
+                    @click="openSell(position)"
                   >
                     Продать
                   </button>
@@ -244,7 +340,8 @@ const chartPoints =
       <section class="card">
         <div class="table-toolbar">
           <h2 class="table-toolbar-title">
-            История цен <span class="table-count">30 записей</span>
+            История цен
+            <span class="table-count">{{ historyRows.length }}</span>
           </h2>
           <div class="export-actions">
             <ExportButtons />
@@ -293,7 +390,7 @@ const chartPoints =
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in priceHistory" :key="record.id">
+              <tr v-for="record in historyRows" :key="record.id">
                 <td class="num">{{ record.timestamp }}</td>
                 <td class="col-num num">{{ record.price }} ₽</td>
                 <td class="col-num">
@@ -309,8 +406,11 @@ const chartPoints =
           </table>
         </div>
         <div class="table-footer">
-          <span>Среднее: 298,62 ₽ · мин 281,75 ₽ · макс 313,20 ₽</span>
-          <a href="#">Показать все</a>
+          <span v-if="historyStats"
+            >Среднее: {{ formatPrice(historyStats.avg) }} ₽ · мин
+            {{ formatPrice(historyStats.min) }} ₽ · макс
+            {{ formatPrice(historyStats.max) }} ₽</span
+          >
         </div>
       </section>
     </div>
@@ -326,7 +426,10 @@ const chartPoints =
     v-if="sellPosition"
     :position="sellPosition"
     :portfolio-name="sellPosition.portfolioName"
+    :error="sellError"
+    :loading="isSubmitting"
     @close="sellPosition = null"
+    @submit="onSell"
   />
 </template>
 

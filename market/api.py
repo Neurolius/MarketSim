@@ -22,6 +22,8 @@ from django.db.models import Max, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+
 class ProfileViewSet(GenericViewSet):
     queryset = User.objects.all()
     @action(detail=False, url_path="me", methods=['GET'])
@@ -84,6 +86,10 @@ class InstrumentTypeViewset(
     GenericViewSet):
     queryset = InstrumentType.objects.all()
     serializer_class = InstrumentTypeSerializer
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [IsAuthenticated()]
+        return [IsAdminUser()]
 
 class InstrumentViewset(
     mixins.CreateModelMixin,
@@ -94,6 +100,11 @@ class InstrumentViewset(
     GenericViewSet):
     queryset = Instrument.objects.all()
     serializer_class = InstrumentSerializer
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [IsAuthenticated()]
+        return [IsAdminUser()]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -133,6 +144,9 @@ class PositionViewset(
 
     def get_queryset(self):
         qs = super().get_queryset()
+        instrument_id = self.request.query_params.get('instrument')
+        if instrument_id:
+            qs = qs.filter(instrument_id=instrument_id)
         if not self.request.user.is_superuser:
             qs = qs.filter(portfolio__user=self.request.user)
         return qs
@@ -144,6 +158,13 @@ class PriceHistoryViewset(
     GenericViewSet):
     queryset = PriceHistory.objects.all()
     serializer_class = PriceHistorySerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        instrument_id = self.request.query_params.get('instrument')
+        if instrument_id:
+            qs = qs.filter(instrument_id=instrument_id)
+        return qs
 
 class TradeViewset(
     mixins.CreateModelMixin,
@@ -168,5 +189,7 @@ class TradeViewset(
                 trade.status = Trade.Status.cancelled
                 trade.save()
                 raise
+        else:
+            service.StockMatrketService.check_pending_limit_orders(trade.instrument)
 
 

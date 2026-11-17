@@ -14,7 +14,6 @@ class InstrumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Instrument
         fields = ['id', 'ticker', 'name', 'instrument_type', 'current_price', 'logo', 'prev_price', 'price_updated_at']
-        read_only_fields = ['current_price']
 
 
 class PortfolioSerializer(serializers.ModelSerializer):
@@ -54,3 +53,16 @@ class TradeSerializer(serializers.ModelSerializer):
                   'execution_type', 'quantity', 'price', 'status',
                   'execution_price', 'created_at', 'executed_at', 'image']
         read_only_fields = ['execution_price', 'status', 'created_at', 'executed_at']
+
+    def validate(self, data):
+        request = self.context.get('request')
+        if request and data['portfolio'].user_id != request.user.id:
+            raise serializers.ValidationError({'portfolio': 'Это портфель другого пользователя.'})
+        if data['quantity'] <= 0:
+            raise serializers.ValidationError({'quantity': 'Количество должно быть положительным числом.'})
+        if data['execution_type'] == Trade.ExecutionType.limit:
+            if not data.get('price') or data['price'] <= 0:
+                raise serializers.ValidationError({'price': 'Укажите положительную цену для лимитного заказа.'})
+        else:
+            data['price'] = None
+        return data

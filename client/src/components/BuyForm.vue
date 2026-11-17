@@ -1,8 +1,9 @@
 <script setup>
-import AppIcon from '@/components/AppIcon.vue'
+import AppIcon from "@/components/AppIcon.vue";
+import { formatPrice, formatQuantity } from "@/utils/format.js";
+import { computed, ref, watch } from "vue";
 
-// instrument — инструмент из API, portfolios — портфели пользователя
-defineProps({
+const props = defineProps({
   instrument: {
     type: Object,
     required: true,
@@ -11,17 +12,77 @@ defineProps({
     type: Array,
     default: () => [],
   },
-  isLimit: {
+  loading: {
     type: Boolean,
     default: false,
   },
   error: {
     type: String,
-    default: '',
+    default: "",
   },
-})
+});
 
-defineEmits(['submit', 'change-execution'])
+const emit = defineEmits(["submit"]);
+
+const portfolioId = ref(null);
+const executionType = ref("market");
+const quantity = ref(null);
+const limitPrice = ref(null);
+const imageFile = ref(null);
+const fileInput = ref(null);
+
+watch(
+  () => props.portfolios,
+  (list) => {
+    if (!portfolioId.value && list.length) portfolioId.value = list[0].id;
+  },
+  { immediate: true },
+);
+
+const isLimit = computed(() => executionType.value === "limit");
+const portfolio = computed(() =>
+  props.portfolios.find((p) => p.id === portfolioId.value),
+);
+const available = computed(() => Number(portfolio.value?.balance ?? 0));
+const unitPrice = computed(() =>
+  isLimit.value ? Number(limitPrice.value) || 0 : props.instrument.rawPrice,
+);
+const total = computed(() => Number(quantity.value) * unitPrice.value);
+const notEnough = computed(() => total.value > available.value);
+const canSubmit = computed(
+  () =>
+    portfolioId.value &&
+    quantity.value > 0 &&
+    (!isLimit.value || limitPrice.value > 0) &&
+    !notEnough.value &&
+    !props.loading,
+);
+
+function onFileChange(event) {
+  imageFile.value = event.target.files[0] || null;
+}
+
+function submit() {
+  emit("submit", {
+    portfolio: portfolioId.value,
+    execution_type: executionType.value,
+    quantity: quantity.value,
+    price: isLimit.value ? limitPrice.value : null,
+    image: imageFile.value,
+  });
+}
+
+function reset() {
+  quantity.value = null;
+  limitPrice.value = null;
+  imageFile.value = null;
+  if (fileInput.value) {
+    fileInput.value.value = "";
+  }
+}
+defineExpose({
+  reset,
+});
 </script>
 
 <template>
@@ -29,24 +90,32 @@ defineEmits(['submit', 'change-execution'])
     <div class="card-header">
       <h2 class="card-title">Купить {{ instrument.ticker }}</h2>
     </div>
-    <form class="card-body form" @submit.prevent="$emit('submit')">
+    <form class="card-body form" @submit.prevent="submit">
       <div class="form-field">
         <label class="form-label" for="buy-portfolio">Портфель</label>
-        <select id="buy-portfolio" class="form-select">
-          <option v-for="portfolio in portfolios" :key="portfolio.id" :value="portfolio.id">
-            {{ portfolio.name }} — баланс {{ portfolio.balance }} ₽
+        <select id="buy-portfolio" v-model="portfolioId" class="form-select">
+          <option
+            v-for="portfolio in portfolios"
+            :key="portfolio.id"
+            :value="portfolio.id"
+          >
+            {{ portfolio.name }} — баланс {{ formatPrice(portfolio.balance) }} ₽
           </option>
         </select>
       </div>
 
       <div class="form-field">
         <span class="form-label">Тип исполнения</span>
-        <div class="segmented segmented-block" role="group" aria-label="Тип исполнения">
+        <div
+          class="segmented segmented-block"
+          role="group"
+          aria-label="Тип исполнения"
+        >
           <button
             class="segmented-btn"
             :class="{ 'is-active': !isLimit }"
             type="button"
-            @click="$emit('change-execution', 'market')"
+            @click="executionType = 'market'"
           >
             Рыночная
           </button>
@@ -54,7 +123,7 @@ defineEmits(['submit', 'change-execution'])
             class="segmented-btn"
             :class="{ 'is-active': isLimit }"
             type="button"
-            @click="$emit('change-execution', 'limit')"
+            @click="executionType = 'limit'"
           >
             Лимитная
           </button>
@@ -65,7 +134,14 @@ defineEmits(['submit', 'change-execution'])
         <div class="form-field">
           <label class="form-label" for="buy-qty">Количество</label>
           <div class="input-group">
-            <input id="buy-qty" class="form-input" type="number" min="0" step="any" />
+            <input
+              id="buy-qty"
+              v-model.number="quantity"
+              class="form-input"
+              type="number"
+              min="0"
+              step="any"
+            />
             <span class="input-addon">шт</span>
           </div>
         </div>
@@ -74,6 +150,7 @@ defineEmits(['submit', 'change-execution'])
           <div class="input-group">
             <input
               id="buy-limit"
+              v-model.number="limitPrice"
               class="form-input"
               type="number"
               min="0"
@@ -89,36 +166,59 @@ defineEmits(['submit', 'change-execution'])
 
       <div class="form-field">
         <label class="form-label" for="buy-image">
-          Скриншот / заметка к сделке <span class="form-label-hint">(необязательно)</span>
+          Скриншот / заметка к сделке
+          <span class="form-label-hint">(необязательно)</span>
         </label>
-        <input id="buy-image" class="form-input" type="file" accept="image/*" />
+        <input
+          id="buy-image"
+          ref="fileInput"
+          class="form-input"
+          type="file"
+          accept="image/*"
+          @change="onFileChange"
+        />
       </div>
 
       <div class="order-summary">
         <div class="order-summary-row">
           <span class="text-muted">Цена</span>
-          <span class="num">{{ instrument.current_price }} ₽</span>
+          <span class="num"
+            >{{
+              isLimit
+                ? limitPrice
+                  ? formatPrice(limitPrice)
+                  : "-"
+                : instrument.price
+            }}
+            ₽</span
+          >
         </div>
         <div class="order-summary-row">
           <span class="text-muted">Количество</span>
-          <span class="num">— шт</span>
+          <span class="num">{{ formatQuantity(quantity || 0) }} шт</span>
         </div>
         <div class="order-summary-row">
           <span class="text-muted">Доступно</span>
-          <span class="num">— ₽</span>
+          <span class="num">{{ formatPrice(available) }} ₽</span>
         </div>
         <div class="order-summary-row order-summary-total">
           <span>Итого</span>
-          <span class="num">— ₽</span>
+          <span class="num">{{ formatPrice(total) }} ₽</span>
         </div>
       </div>
 
-      <div v-if="error" class="alert alert-error" role="alert">
+      <div v-if="error || notEnough" class="alert alert-error" role="alert">
         <AppIcon name="alert" />
-        <span>{{ error }}</span>
+        <span>{{ error || "Недостаточно средств в портфеле" }}</span>
       </div>
 
-      <button class="btn btn-buy btn-lg btn-block" type="submit">Купить</button>
+      <button
+        class="btn btn-buy btn-lg btn-block"
+        type="submit"
+        :disabled="!canSubmit"
+      >
+        {{ loading ? "Отправка..." : isLimit ? "Выставить заявку" : "Купить" }}
+      </button>
     </form>
   </section>
 </template>
