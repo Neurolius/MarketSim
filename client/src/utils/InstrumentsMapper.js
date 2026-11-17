@@ -1,24 +1,4 @@
-const nf = new Intl.NumberFormat("ru-RU", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const formatPrice = (v) => nf.format(Number(v));
-
-const formatSigned = (v) => {
-  const n = Number(v);
-  return (n > 0 ? "+" : n < 0 ? "−" : "") + nf.format(Math.abs(n));
-};
-
-const formatDate = (iso) =>
-  iso
-    ? new Date(iso).toLocaleString("ru-RU", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-    : "—";
+import { formatPrice, formatSigned, formatDate } from "./format";
 
 export function mapInstrument(raw, typesById) {
   const price = Number(raw.current_price);
@@ -37,6 +17,7 @@ export function mapInstrument(raw, typesById) {
     price: formatPrice(price),
     diff: formatSigned(diff),
     change: formatSigned(percent) + "%",
+    rawChange: percent,
     isUp: diff >= 0,
     updated: formatDate(raw.price_updated_at),
   };

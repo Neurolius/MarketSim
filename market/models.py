@@ -35,6 +35,17 @@ class Instrument(models.Model):
         verbose_name = "Инструмент"
         verbose_name_plural = "Инструменты"
 
+    def save(self, *args, **kwargs):
+        price_changed = True
+        if self.pk:
+            old_price = Instrument.objects.filter(pk=self.pk).values_list('current_price', flat=True).first()
+            price_changed = old_price != self.current_price
+
+        super().save(*args, **kwargs)
+
+        if price_changed:
+            PriceHistory.objects.create(instrument=self, price=self.current_price)
+
     def __str__(self):
         return self.ticker
 

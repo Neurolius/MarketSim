@@ -1,5 +1,5 @@
 <script setup>
-import InstrumentLogo from '@/components/InstrumentLogo.vue'
+import InstrumentLogo from "@/components/InstrumentLogo.vue";
 
 defineProps({
   instrument: {
@@ -13,7 +13,7 @@ defineProps({
   // изменение цены за период, например '+6,42%'
   change: {
     type: String,
-    default: '',
+    default: "",
   },
   isUp: {
     type: Boolean,
@@ -22,13 +22,16 @@ defineProps({
   // точки мини-графика в координатах 72×28, например '0,22 10,20 20,23 …'
   sparkPoints: {
     type: String,
-    default: '',
+    default: "",
   },
-})
+});
 </script>
 
 <template>
-  <router-link :to="{ name: 'instrument', params: { id: instrument.id } }" class="instrument-card">
+  <router-link
+    :to="{ name: 'instrument', params: { id: instrument.id } }"
+    class="instrument-card"
+  >
     <span v-if="rank" class="instrument-card-rank">{{ rank }}</span>
     <InstrumentLogo
       :ticker="instrument.ticker"
@@ -47,11 +50,19 @@ defineProps({
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      <polyline class="spark-line" :class="{ 'is-down': !isUp }" :points="sparkPoints" />
+      <polyline
+        class="spark-line"
+        :class="{ 'is-down': !isUp }"
+        :points="sparkPoints"
+      />
     </svg>
     <span class="instrument-card-price">
-      <span class="instrument-card-value">{{ instrument.current_price }} ₽</span>
-      <span v-if="change" class="price-change" :class="isUp ? 'is-up' : 'is-down'">
+      <span class="instrument-card-value">{{ instrument.price }} ₽</span>
+      <span
+        v-if="change"
+        class="price-change"
+        :class="isUp ? 'is-up' : 'is-down'"
+      >
         {{ change }}
       </span>
     </span>

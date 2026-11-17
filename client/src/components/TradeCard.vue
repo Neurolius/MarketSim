@@ -1,7 +1,9 @@
 <script setup>
-import InstrumentLogo from '@/components/InstrumentLogo.vue'
+import InstrumentLogo from "@/components/InstrumentLogo.vue";
+import { formatPrice, formatQuantity } from "@/utils/format.js";
+import { computed } from "vue";
 
-defineProps({
+const props = defineProps({
   trade: {
     type: Object,
     required: true,
@@ -10,11 +12,25 @@ defineProps({
     type: Object,
     default: null,
   },
-})
+});
 
-const orderTypeLabels = { buy: 'Покупка', sell: 'Продажа' }
-const executionTypeLabels = { market: 'Рыночная', limit: 'Лимитная' }
-const statusLabels = { pending: 'Ожидает', executed: 'Исполнена', cancelled: 'Отменена' }
+const orderTypeLabels = { buy: "Покупка", sell: "Продажа" };
+const executionTypeLabels = { market: "Рыночная", limit: "Лимитная" };
+const statusLabels = {
+  pending: "Ожидает",
+  executed: "Исполнена",
+  cancelled: "Отменена",
+};
+
+const unitPrice = computed(
+  () =>
+    props.trade.execution_price ??
+    props.trade.price ??
+    props.trade.instrument_info.current_price,
+);
+const total = computed(
+  () => Number(props.trade.quantity) * Number(unitPrice.value),
+);
 </script>
 
 <template>
@@ -23,7 +39,9 @@ const statusLabels = { pending: 'Ожидает', executed: 'Исполнена'
       <span class="badge" :class="`badge-${trade.order_type}`">
         {{ orderTypeLabels[trade.order_type] }}
       </span>
-      <span class="badge" :class="`badge-${trade.status}`">{{ statusLabels[trade.status] }}</span>
+      <span class="badge" :class="`badge-${trade.status}`">{{
+        statusLabels[trade.status]
+      }}</span>
       <time class="trade-card-date" :datetime="trade.created_at">
         {{ new Date(trade.created_at).toLocaleString() }}
       </time>
@@ -35,17 +53,22 @@ const statusLabels = { pending: 'Ожидает', executed: 'Исполнена'
         :zoomable="false"
       />
       <div class="trade-card-instrument">
-        <span class="trade-card-ticker">{{ trade.instrument_info.ticker }}</span>
+        <span class="trade-card-ticker">{{
+          trade.instrument_info.ticker
+        }}</span>
         <span class="trade-card-name">{{ trade.instrument_info.name }}</span>
       </div>
       <div class="trade-card-amount">
         <span class="trade-card-qty">
-          {{ trade.quantity }} ×
-          <template v-if="trade.execution_type === 'limit'">лимит {{ trade.price }} ₽</template>
-          <template v-else>{{ trade.execution_price ?? trade.price }} ₽</template>
+          {{ formatQuantity(trade.quantity) }} ×
+          <template
+            v-if="trade.execution_type === 'limit' && !trade.execution_price"
+            >лимит {{ formatPrice(trade.price) }} ₽</template
+          >
+          <template v-else>{{ formatPrice(unitPrice) }} ₽</template>
         </span>
         <!-- сумма сделки: количество × цена -->
-        <span class="trade-card-total">—</span>
+        <span class="trade-card-total">{{ formatPrice(total) }} ₽</span>
       </div>
     </div>
     <div class="trade-card-foot">

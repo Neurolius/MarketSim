@@ -1,55 +1,75 @@
 <script setup>
-import HeaderNavbar from '@/components/HeaderNavbar.vue'
-import TradeCard from '@/components/TradeCard.vue'
-import InstrumentCard from '@/components/InstrumentCard.vue'
-import PortfolioShortCard from '@/components/PortfolioShortCard.vue'
-import EmptyState from '@/components/EmptyState.vue'
-import AppIcon from '@/components/AppIcon.vue'
-import axios from 'axios'
-import { computed, onBeforeMount, ref } from 'vue'
+import HeaderNavbar from "@/components/HeaderNavbar.vue";
+import TradeCard from "@/components/TradeCard.vue";
+import InstrumentCard from "@/components/InstrumentCard.vue";
+import PortfolioShortCard from "@/components/PortfolioShortCard.vue";
+import EmptyState from "@/components/EmptyState.vue";
+import AppIcon from "@/components/AppIcon.vue";
+import axios from "axios";
+import { computed, onBeforeMount, ref, watch } from "vue";
+import { mapInstrument } from "@/utils/InstrumentsMapper.js";
+import { formatPrice } from "@/utils/format.js";
 
-const portfoliosList = ref([])
-const tradeList = ref([])
-const positionList = ref([])
+const portfoliosList = ref([]);
+const tradeList = ref([]);
+const positionList = ref([]);
 
 const portfoliosBalance = computed(() =>
   portfoliosList.value.reduce((total, p) => total + Number(p.balance), 0),
-)
+);
 
 const portfoliosById = computed(() =>
   Object.fromEntries(portfoliosList.value.map((p) => [p.id, p])),
-)
+);
 
 const lastTrades = computed(() =>
-  [...tradeList.value].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10),
-)
+  [...tradeList.value]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 10),
+);
 
-function countPosCost(portfolio){
-  return positionList.value.filter((p) => p.portfolio == portfolio.id).reduce((total, p) => total + Number(p.instrument_info.current_price) * Number(p.quantity), 0)
-}
+const portfolioStats = computed(() => {
+  const stats = Object.fromEntries(
+    portfoliosList.value.map((p) => [
+      p.id,
+      { value: Number(p.balance), positionsCount: 0 },
+    ]),
+  );
+  for (const pos of positionList.value) {
+    const s = stats[pos.portfolio];
+    if (!s) continue;
+    s.positionsCount += 1;
+    s.value += Number(pos.instrument_info.current_price) * Number(pos.quantity);
+  }
+  return stats;
+});
 
 onBeforeMount(async () => {
+  fetchLeaders();
   const [portfolios, trades, positions] = await Promise.all([
-    axios.get('/api/portfolio/'),
-    axios.get('/api/trade/'),
-    axios.get('/api/position'),
-  ])
-  portfoliosList.value = portfolios.data
-  tradeList.value = trades.data
-  positionList.value = positions.data
-})
+    axios.get("/api/portfolio/"),
+    axios.get("/api/trade/"),
+    axios.get("/api/position/"),
+  ]);
+  portfoliosList.value = portfolios.data;
+  tradeList.value = trades.data;
+  positionList.value = positions.data;
+});
 
-// моковые данные для верстки — заменить на данные из API
-const bestInstruments = [
-  { id: 1, ticker: 'ETH', name: 'Ethereum', type: 'crypto', current_price: '312 450', change: '+6,42%', isUp: true, spark: '0,22 10,20 20,23 30,16 40,17 50,10 60,12 72,4' },
-  { id: 2, ticker: 'YDEX', name: 'Яндекс', type: 'stock', current_price: '4 186,50', change: '+4,18%', isUp: true, spark: '0,20 10,21 20,17 30,18 40,12 50,13 60,8 72,6' },
-  { id: 3, ticker: 'SBER', name: 'Сбербанк', type: 'stock', current_price: '312,45', change: '+2,07%', isUp: true, spark: '0,18 10,19 20,15 30,16 40,14 50,11 60,12 72,8' },
-  { id: 4, ticker: 'BTC', name: 'Bitcoin', type: 'crypto', current_price: '8 945 200', change: '+1,35%', isUp: true, spark: '0,16 10,18 20,14 30,15 40,13 50,14 60,10 72,11' },
-  { id: 5, ticker: 'EUR/RUB', name: 'Евро', type: 'currency', current_price: '94,12', change: '+0,48%', isUp: true, spark: '0,15 10,16 20,14 30,15 40,13 50,13 60,12 72,11' },
-  { id: 6, ticker: 'GAZP', name: 'Газпром', type: 'stock', current_price: '128,90', change: '−0,92%', isUp: false, spark: '0,8 10,9 20,12 30,11 40,15 50,14 60,18 72,20' },
-]
+const leadersPeriod = ref("day");
+const leaders = ref([]);
 
+async function fetchLeaders() {
+  const r = await axios.get("/api/instrument/", {
+    params: { period: leadersPeriod.value },
+  });
+  leaders.value = r.data
+    .map((i) => mapInstrument(i, {}))
+    .sort((a, b) => b.rawChange - a.rawChange)
+    .slice(0, 6);
+}
 
+watch(leadersPeriod, fetchLeaders);
 </script>
 
 <template>
@@ -76,17 +96,18 @@ const bestInstruments = [
       <section class="card">
         <div class="card-header">
           <h2 class="card-title">Портфели</h2>
-          <router-link :to="{ name: 'portfolios' }" class="text-sm">Все портфели</router-link>
+          <router-link :to="{ name: 'portfolios' }" class="text-sm"
+            >Все портфели</router-link
+          >
         </div>
         <div v-if="portfoliosList.length" class="portfolio-list">
           <PortfolioShortCard
             v-for="portfolio in portfoliosList"
             :key="portfolio.id"
             :portfolio="portfolio"
-            :value="Number(countPosCost(portfolio)) + Number(portfolio.balance)"
-            :positionsCount="positionList.filter((p) => p.portfolio == portfolio.id).length"
+            :value="formatPrice(portfolioStats[portfolio.id].value)"
+            :positionsCount="portfolioStats[portfolio.id].positionsCount"
           />
-          
         </div>
         <EmptyState
           v-else
@@ -100,7 +121,9 @@ const bestInstruments = [
         </EmptyState>
         <div class="card-footer">
           <span class="text-muted">Свободные средства</span>
-          <span class="num text-strong">{{ portfoliosBalance }} ₽</span>
+          <span class="num text-strong"
+            >{{ formatPrice(portfoliosBalance) }} ₽</span
+          >
         </div>
       </section>
 
@@ -108,7 +131,9 @@ const bestInstruments = [
       <section class="card">
         <div class="card-header">
           <h2 class="card-title">Последние сделки</h2>
-          <router-link :to="{ name: 'profile' }" class="text-sm">Вся история</router-link>
+          <router-link :to="{ name: 'profile' }" class="text-sm"
+            >Вся история</router-link
+          >
         </div>
         <div v-if="lastTrades.length" class="trade-list">
           <TradeCard
@@ -135,23 +160,39 @@ const bestInstruments = [
         <div class="card-header">
           <h2 class="card-title">Лидеры роста</h2>
           <div class="segmented" role="group" aria-label="Период">
-            <button class="segmented-btn is-active" type="button">День</button>
-            <button class="segmented-btn" type="button">Неделя</button>
+            <button
+              class="segmented-btn"
+              :class="{ 'is-active': leadersPeriod === 'day' }"
+              type="button"
+              @click="leadersPeriod = 'day'"
+            >
+              День
+            </button>
+            <button
+              class="segmented-btn"
+              :class="{ 'is-active': leadersPeriod === 'week' }"
+              type="button"
+              @click="leadersPeriod = 'week'"
+            >
+              Неделя
+            </button>
           </div>
         </div>
         <div class="instrument-list">
           <InstrumentCard
-            v-for="(instrument, index) in bestInstruments"
+            v-for="(instrument, index) in leaders"
             :key="instrument.id"
             :instrument="instrument"
             :rank="index + 1"
             :change="instrument.change"
             :is-up="instrument.isUp"
-            :spark-points="instrument.spark"
           />
         </div>
         <div class="card-footer">
-          <span class="text-muted">По изменению цены за день</span>
+          <span class="text-muted"
+            >По изменению цены за
+            {{ leadersPeriod === "day" ? "день" : "неделю" }}</span
+          >
           <router-link :to="{ name: 'instruments' }">Каталог →</router-link>
         </div>
       </section>

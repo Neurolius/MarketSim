@@ -1,4 +1,5 @@
 <script setup>
+import { formatPrice } from "@/utils/format.js";
 
 defineProps({
   portfolio: {
@@ -6,14 +7,14 @@ defineProps({
     required: true,
   },
   value: {
-    type: Number,
-    default: 0,
+    type: String,
+    default: "-",
   },
   positionsCount: {
     type: [Number, String],
-    default: '—',
+    default: "-",
   },
-})
+});
 </script>
 
 <template>
@@ -28,11 +29,15 @@ defineProps({
     <div class="portfolio-short-card-main">
       <span class="portfolio-short-card-cover">
         <img v-if="portfolio.cover_image" :src="portfolio.cover_image" alt="" />
-        <template v-else>{{ portfolio.name?.slice(0, 2).toUpperCase() }}</template>
+        <template v-else>{{
+          portfolio.name?.slice(0, 2).toUpperCase()
+        }}</template>
       </span>
       <div class="portfolio-short-card-info">
         <span class="portfolio-short-card-name">{{ portfolio.name }}</span>
-        <span class="portfolio-short-card-balance">Свободно: {{ portfolio.balance}} ₽</span>
+        <span class="portfolio-short-card-balance"
+          >Свободно: {{ formatPrice(portfolio.balance) }} ₽</span
+        >
       </div>
       <div class="portfolio-short-card-amount">
         <span class="portfolio-short-card-label">Стоимость</span>
@@ -85,7 +90,11 @@ defineProps({
   overflow: hidden;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  background: repeating-linear-gradient(135deg, #e8ecf2 0 6px, #dfe4ec 6px 12px);
+  background: repeating-linear-gradient(
+    135deg,
+    #e8ecf2 0 6px,
+    #dfe4ec 6px 12px
+  );
   display: grid;
   place-items: center;
   font-size: 11px;

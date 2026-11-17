@@ -17,6 +17,10 @@ from django.contrib.auth import logout as django_logout
 from django.contrib.auth import login as django_login
 from django.contrib.auth import authenticate
 
+from datetime import timedelta
+from django.db.models import Max, OuterRef, Subquery
+from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 class ProfileViewSet(GenericViewSet):
     queryset = User.objects.all()
@@ -90,6 +94,20 @@ class InstrumentViewset(
     GenericViewSet):
     queryset = Instrument.objects.all()
     serializer_class = InstrumentSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+
+        hours = {'day': 24, 'week': 24 * 7}.get(self.request.query_params.get('period'),24)
+        since = timezone.now() - timedelta(hours=hours)
+        history = PriceHistory.objects.filter(instrument=OuterRef('pk'))
+        price_before = history.filter(timestamp__lte=since).order_by('-timestamp').values('price')[:1]
+        first_price = history.order_by('timestamp').values('price')[:1]
+
+        return qs.annotate(
+            prev_price=Coalesce(Subquery(price_before), Subquery(first_price)),
+            price_updated_at=Max('price_history__timestamp'))
+
 
 class PortfolioViewset(
     mixins.CreateModelMixin,

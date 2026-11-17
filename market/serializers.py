@@ -8,9 +8,12 @@ class InstrumentTypeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 class InstrumentSerializer(serializers.ModelSerializer):
+    prev_price = serializers.DecimalField(max_digits=15, decimal_places=4, read_only=True, allow_null=True)
+    price_updated_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    
     class Meta:
         model = Instrument
-        fields = ['id', 'ticker', 'name', 'instrument_type', 'current_price', 'logo']
+        fields = ['id', 'ticker', 'name', 'instrument_type', 'current_price', 'logo', 'prev_price', 'price_updated_at']
         read_only_fields = ['current_price']
 
 
