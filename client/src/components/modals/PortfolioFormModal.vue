@@ -1,16 +1,50 @@
 <script setup>
-import BaseModal from '@/components/BaseModal.vue'
-import ImageUpload from '@/components/ImageUpload.vue'
+import { computed, onBeforeUnmount, ref } from "vue";
+import AppIcon from "@/components/AppIcon.vue";
+import BaseModal from "@/components/BaseModal.vue";
+import ImageUpload from "@/components/ImageUpload.vue";
 
-// portfolio — редактируемый портфель; без него модалка работает как «Новый портфель»
-defineProps({
-  portfolio: {
-    type: Object,
-    default: null,
-  },
-})
+const props = defineProps({
+  portfolio: { type: Object, default: null },
+  error: { type: String, default: "" },
+  loading: { type: Boolean, default: false },
+});
+const emit = defineEmits(["close", "submit"]);
 
-defineEmits(['close', 'submit', 'open-cover'])
+const name = ref(props.portfolio?.name ?? "");
+const balance = ref(100000);
+const coverFile = ref(null);
+const coverPreview = ref(props.portfolio?.cover_image ?? "");
+
+function onCoverChange(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  coverFile.value = file;
+  if (coverPreview.value.startsWith("blob:"))
+    URL.revokeObjectURL(coverPreview.value);
+  coverPreview.value = URL.createObjectURL(file);
+}
+
+onBeforeUnmount(() => {
+  if (coverPreview.value.startsWith("blob:"))
+    URL.revokeObjectURL(coverPreview.value);
+});
+
+const canSubmit = computed(
+  () =>
+    name.value.trim() &&
+    (props.portfolio || (balance.value != "" && balance.value >= 0)) &&
+    !props.loading,
+);
+
+function submit() {
+  if (!canSubmit.value) return;
+  emit("submit", {
+    name: name.value.trim(),
+    balance: props.portfolio ? null : balance.value,
+    cover_image: coverFile.value,
+  });
+}
 </script>
 
 <template>
@@ -18,7 +52,7 @@ defineEmits(['close', 'submit', 'open-cover'])
     :title="portfolio ? 'Изменить портфель' : 'Новый портфель'"
     form
     @close="$emit('close')"
-    @submit="$emit('submit')"
+    @submit="submit"
   >
     <div class="form-field">
       <label class="form-label" for="portfolio-name">Название</label>
@@ -27,37 +61,46 @@ defineEmits(['close', 'submit', 'open-cover'])
         class="form-input"
         type="text"
         placeholder="Например, «Основной»"
-        :value="portfolio?.name"
+        v-model="name"
       />
     </div>
-    <div class="form-field">
-      <label class="form-label" for="portfolio-balance">Баланс</label>
+    <div v-if="!portfolio" class="form-field">
+      <label class="form-label" for="portfolio-balance">Стартовый баланс</label>
       <div class="input-group">
         <input
           id="portfolio-balance"
+          v-model.number="balance"
           class="form-input"
           type="number"
           min="0"
-          :value="portfolio?.balance"
         />
         <span class="input-addon">₽</span>
       </div>
-      <span class="form-hint">При создании — стартовый виртуальный баланс</span>
+      <span class="form-hint">Дальше баланс меняется только сделками</span>
     </div>
     <div class="form-field">
       <span class="form-label">Обложка</span>
       <ImageUpload
         id="portfolio-cover"
-        :preview-url="portfolio ? (portfolio.cover_image ?? '') : null"
-        :action-text="portfolio?.cover_image ? 'Заменить файл' : 'Выберите файл'"
+        :preview-url="coverPreview"
+        :action-text="coverPreview ? 'Заменить файл' : 'Выберите файл'"
         text="или перетащите"
-        @open-preview="$emit('open-cover')"
+        @change="onCoverChange"
       />
     </div>
 
+    <div v-if="error" class="alert alert-error" role="alert">
+      <AppIcon name="alert" />
+      <span>{{ error }}</span>
+    </div>
+
     <template #footer>
-      <button class="btn btn-secondary" type="button" @click="$emit('close')">Отмена</button>
-      <button class="btn btn-primary" type="submit">{{ portfolio ? 'Сохранить' : 'Создать' }}</button>
+      <button class="btn btn-primary" type="submit" :disabled="!canSubmit">
+        Отмена
+      </button>
+      <button class="btn btn-primary" type="submit">
+        {{ portfolio ? "Сохранить" : "Создать" }}
+      </button>
     </template>
   </BaseModal>
 </template>

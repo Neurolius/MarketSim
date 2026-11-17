@@ -1,20 +1,19 @@
 <script setup>
-import AppIcon from '@/components/AppIcon.vue'
+import AppIcon from "@/components/AppIcon.vue";
+import { formatPrice } from "@/utils/format";
 
 defineProps({
   portfolio: {
     type: Object,
     required: true,
   },
-  // стоимость портфеля: баланс + позиции
   value: {
     type: String,
-    default: '—',
+    default: "—",
   },
-  // изменение стоимости, например '+3,1%'
   change: {
     type: String,
-    default: '',
+    default: "",
   },
   isUp: {
     type: Boolean,
@@ -22,20 +21,19 @@ defineProps({
   },
   positionsCount: {
     type: [Number, String],
-    default: '—',
+    default: "—",
   },
   profit: {
     type: String,
-    default: '—',
+    default: "—",
   },
-  // владелец — показывается только суперпользователю
   owner: {
     type: String,
     default: null,
   },
-})
+});
 
-defineEmits(['open-cover', 'edit', 'delete'])
+defineEmits(["open-cover", "edit", "delete"]);
 </script>
 
 <template>
@@ -70,7 +68,7 @@ defineEmits(['open-cover', 'edit', 'delete'])
       <div class="portfolio-card-meta">
         <div>
           <div class="meta-label">Баланс</div>
-          <div class="num">{{ portfolio.balance }} ₽</div>
+          <div class="num">{{ formatPrice(portfolio.balance) }} ₽</div>
         </div>
         <div>
           <div class="meta-label">Позиций</div>
@@ -78,10 +76,14 @@ defineEmits(['open-cover', 'edit', 'delete'])
         </div>
         <div>
           <div class="meta-label">П/У</div>
-          <div class="num" :class="isUp ? 'text-up' : 'text-down'">{{ profit }}</div>
+          <div class="num" :class="isUp ? 'text-up' : 'text-down'">
+            {{ profit }}
+          </div>
         </div>
         <div v-if="owner">
-          <div class="meta-label">Владелец <span class="admin-only-tag">админ</span></div>
+          <div class="meta-label">
+            Владелец <span class="admin-only-tag">админ</span>
+          </div>
           <div>{{ owner }}</div>
         </div>
       </div>
@@ -98,7 +100,11 @@ defineEmits(['open-cover', 'edit', 'delete'])
         <AppIcon name="edit" />
         Изменить
       </button>
-      <button class="btn btn-danger btn-sm push-right" type="button" @click="$emit('delete')">
+      <button
+        class="btn btn-danger btn-sm push-right"
+        type="button"
+        @click="$emit('delete')"
+      >
         <AppIcon name="trash" />
         Удалить
       </button>
@@ -119,7 +125,11 @@ defineEmits(['open-cover', 'edit', 'delete'])
   padding: 0;
   border: 0;
   border-bottom: 1px solid var(--color-border);
-  background: repeating-linear-gradient(135deg, #e8ecf2 0 10px, #dfe4ec 10px 20px);
+  background: repeating-linear-gradient(
+    135deg,
+    #e8ecf2 0 10px,
+    #dfe4ec 10px 20px
+  );
   cursor: zoom-in;
 }
 

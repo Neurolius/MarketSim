@@ -16,6 +16,7 @@ import {
   formatQuantity,
   formatSigned,
   formatDate,
+  toDateInputValue,
 } from "@/utils/format";
 import { buildChart } from "@/utils/chart";
 import { toFormData, errorText } from "@/utils/api";
@@ -75,6 +76,8 @@ const historyRows = computed(() =>
     const percent = older ? (price / Number(older.price) - 1) * 100 : 0;
     return {
       id: record.id,
+      date: toDateInputValue(record.timestamp),
+      rawPrice: price,
       timestamp: formatDate(record.timestamp),
       price: formatPrice(price),
       change: formatSigned(percent) + "%",
@@ -82,6 +85,24 @@ const historyRows = computed(() =>
     };
   }),
 );
+
+const historyFilters = ref({
+  dateFrom: "",
+  dateTo: "",
+  priceFrom: "",
+  priceTo: "",
+});
+
+const filteredHistory = computed(() => {
+  const f = historyFilters.value;
+  return historyRows.value.filter(
+    (r) =>
+      (!f.dateFrom || r.date >= f.dateFrom) &&
+      (!f.dateTo || r.date <= f.dateTo) &&
+      (f.priceFrom === "" || r.rawPrice >= f.priceFrom) &&
+      (f.priceTo === "" || r.rawPrice <= f.priceTo),
+  );
+});
 
 const historyStats = computed(() => {
   const prices = priceHistoryList.value.map((r) => Number(r.price));
@@ -341,7 +362,7 @@ async function onSell(data) {
         <div class="table-toolbar">
           <h2 class="table-toolbar-title">
             История цен
-            <span class="table-count">{{ historyRows.length }}</span>
+            <span class="table-count">{{ filteredHistory.length }}</span>
           </h2>
           <div class="export-actions">
             <ExportButtons />
@@ -359,11 +380,13 @@ async function onSell(data) {
                 <th>
                   <div class="filter-range">
                     <input
+                      v-model="historyFilters.dateFrom"
                       class="filter-input"
                       type="date"
                       aria-label="С даты"
                     />
                     <input
+                      v-model="historyFilters.dateTo"
                       class="filter-input"
                       type="date"
                       aria-label="По дату"
@@ -373,12 +396,14 @@ async function onSell(data) {
                 <th>
                   <div class="filter-range">
                     <input
+                      v-model.number="historyFilters.priceFrom"
                       class="filter-input"
                       type="number"
                       placeholder="от"
                       aria-label="Цена от"
                     />
                     <input
+                      v-model.number="historyFilters.priceTo"
                       class="filter-input"
                       type="number"
                       placeholder="до"
@@ -390,7 +415,7 @@ async function onSell(data) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in historyRows" :key="record.id">
+              <tr v-for="record in filteredHistory" :key="record.id">
                 <td class="num">{{ record.timestamp }}</td>
                 <td class="col-num num">{{ record.price }} ₽</td>
                 <td class="col-num">

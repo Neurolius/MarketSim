@@ -5,7 +5,7 @@ from rest_framework.viewsets import GenericViewSet, mixins
 from market import service
 from market.exceptions import TradeException
 from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade
-from market.serializers import InstrumentTypeSerializer, InstrumentSerializer, PortfolioSerializer, PositionSerializer, PriceHistorySerializer, TradeSerializer
+from market.serializers import InstrumentTypeSerializer, InstrumentSerializer, PortfolioSerializer, PositionSerializer, PriceHistorySerializer, TradeSerializer, TradeUpdateSerializer
 
 from rest_framework.viewsets import GenericViewSet
 from rest_framework import mixins
@@ -145,6 +145,9 @@ class PositionViewset(
     def get_queryset(self):
         qs = super().get_queryset()
         instrument_id = self.request.query_params.get('instrument')
+        portfolio_id = self.request.query_params.get('portfolio')
+        if portfolio_id:
+            qs = qs.filter(portfolio_id=portfolio_id)
         if instrument_id:
             qs = qs.filter(instrument_id=instrument_id)
         if not self.request.user.is_superuser:
@@ -171,6 +174,7 @@ class TradeViewset(
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin, 
     mixins.DestroyModelMixin,
+    mixins.UpdateModelMixin,
     GenericViewSet):
     queryset = Trade.objects.all()
     serializer_class = TradeSerializer
@@ -178,6 +182,9 @@ class TradeViewset(
     def get_queryset(self):
         qs = super().get_queryset()
         qs = qs.filter(portfolio__user=self.request.user)
+        portfolio_id = self.request.query_params.get('portfolio')
+        if portfolio_id:
+            qs = qs.filter(portfolio_id=portfolio_id)
         return qs
 
     def perform_create(self, serializer):
@@ -192,4 +199,23 @@ class TradeViewset(
         else:
             service.StockMatrketService.check_pending_limit_orders(trade.instrument)
 
+    def get_serializer_class(self):
+        if self.action in ('update', 'partial_update'):
+            return TradeUpdateSerializer
+        return TradeSerializer
+
+    def perform_update(self, serializer):
+        if serializer.instance.status != Trade.Status.pending:
+            raise TradeException('Изменить можно только ожидающую заявку')
+        trade=serializer.save()
+        service.StockMatrketService.check_pending_limit_orders(trade.instrument)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        trade = self.get_object()
+        if trade.status != Trade.Status.pending:
+            raise TradeException('Изменить можно только ожидающую заявку')
+        trade.status = Trade.Status.cancelled
+        trade.save()
+        return Response(TradeSerializer(trade, context=self.get_serializer_context()).data)
 

@@ -17,15 +17,26 @@ class InstrumentSerializer(serializers.ModelSerializer):
 
 
 class PortfolioSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    
     def create(self, validated_data):
         if 'request' in self.context:
             validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
 
+    def update(self, instance, validated_data):
+        validated_data.pop('balance', None)
+        return super().update(instance, validated_data)
+
+    def validate_balance(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Баланс не может быть отрицательным")
+        return value
+
     class Meta:
         model = Portfolio
-        fields = ['id', 'name', 'user', 'balance', 'cover_image']
-        read_only_fields = ['balance']
+        fields = ['id', 'name', 'user', 'user_name', 'balance', 'cover_image']
+        read_only_fields = ['user']
 
 
 class PositionSerializer(serializers.ModelSerializer):
@@ -66,3 +77,18 @@ class TradeSerializer(serializers.ModelSerializer):
         else:
             data['price'] = None
         return data
+
+class TradeUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trade
+        fields = ['quantity', 'price', 'image']
+
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Количество должно быть больше нуля')
+        return value
+
+    def validate_price(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError('Укажите положительную лимитную цену')
+        return value

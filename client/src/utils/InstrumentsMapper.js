@@ -1,4 +1,9 @@
-import { formatPrice, formatSigned, formatDate } from "./format";
+import {
+  formatPrice,
+  formatSigned,
+  formatDate,
+  toDateInputValue,
+} from "./format";
 
 export function mapInstrument(raw, typesById) {
   const price = Number(raw.current_price);
@@ -20,5 +25,6 @@ export function mapInstrument(raw, typesById) {
     rawChange: percent,
     isUp: diff >= 0,
     updated: formatDate(raw.price_updated_at),
+    updatedDate: toDateInputValue(raw.price_updated_at),
   };
 }

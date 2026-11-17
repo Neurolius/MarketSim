@@ -39,6 +39,7 @@ const emptyFilters = () => ({
   priceFrom: "",
   priceTo: "",
   change: "",
+  updatedDate: "",
 });
 const filters = ref(emptyFilters());
 
@@ -53,7 +54,8 @@ const filteredInstrumentsList = computed(() => {
       (!f.type || i.typeId === f.type) &&
       (f.priceFrom === "" || i.rawPrice >= f.priceFrom) &&
       (f.priceTo === "" || i.rawPrice <= f.priceTo) &&
-      (!f.change || (f.change === "up" ? i.rawChange > 0 : i.rawChange < 0)),
+      (!f.change || (f.change === "up" ? i.rawChange > 0 : i.rawChange < 0)) &&
+      (!f.updatedDate || i.updatedDate === f.updatedDate),
   );
 });
 
@@ -278,6 +280,7 @@ async function deleteInstrument() {
               <th></th>
               <th>
                 <input
+                  v-model="filters.updatedDate"
                   class="filter-input"
                   type="date"
                   aria-label="Дата обновления"
