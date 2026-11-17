@@ -1,26 +1,131 @@
 <script setup>
-import HeaderNavbar from '@/components/HeaderNavbar.vue'
-import StatCard from '@/components/StatCard.vue'
-import ExportButtons from '@/components/ExportButtons.vue'
-import TwoFactorCard from '@/components/TwoFactorCard.vue'
-import useProfileStore from '@/stores/profileStore'
+import HeaderNavbar from "@/components/HeaderNavbar.vue";
+import StatCard from "@/components/StatCard.vue";
+import ExportButtons from "@/components/ExportButtons.vue";
+import TwoFactorCard from "@/components/TwoFactorCard.vue";
+import useProfileStore from "@/stores/profileStore";
+import { computed, onBeforeMount, ref } from "vue";
+import axios from "axios";
+import {
+  formatPrice,
+  formatQuantity,
+  formatDate,
+  formatCompact,
+  toDateInputValue,
+} from "@/utils/format";
 
-const profileStore = useProfileStore()
-const username = profileStore.userName
+const profileStore = useProfileStore();
 
-const orderTypeLabels = { buy: 'Покупка', sell: 'Продажа' }
-const executionTypeLabels = { market: 'Рыночная', limit: 'Лимитная' }
-const statusLabels = { pending: 'Ожидает', executed: 'Исполнена', cancelled: 'Отменена' }
+const orderTypeLabels = { buy: "Покупка", sell: "Продажа" };
+const executionTypeLabels = { market: "Рыночная", limit: "Лимитная" };
+const statusLabels = {
+  pending: "Ожидает",
+  executed: "Исполнена",
+  cancelled: "Отменена",
+};
 
-// моковые данные для верстки — заменить на данные из API
-const trades = [
-  { id: 1, created: '21.10, 14:32', executed: '21.10, 14:32', user: 'nikita', portfolio: 1, portfolioName: 'Основной', ticker: 'SBER', order_type: 'buy', execution_type: 'market', quantity: '10', price: '312,45 ₽', total: '3 124,50 ₽', status: 'executed' },
-  { id: 2, created: '21.10, 12:05', executed: null, user: 'nikita', portfolio: 2, portfolioName: 'Крипта', ticker: 'BTC', order_type: 'sell', execution_type: 'limit', quantity: '0,05', price: '9 100 000 ₽', total: '455 000,00 ₽', status: 'pending' },
-  { id: 3, created: '20.10, 18:47', executed: '20.10, 18:47', user: 'student01', portfolio: 4, portfolioName: 'Учебный', ticker: 'USD/RUB', order_type: 'buy', execution_type: 'market', quantity: '500', price: '81,20 ₽', total: '40 600,00 ₽', status: 'executed' },
-  { id: 4, created: '20.10, 11:10', executed: null, user: 'nikita', portfolio: 1, portfolioName: 'Основной', ticker: 'LKOH', order_type: 'buy', execution_type: 'limit', quantity: '2', price: '6 800,00 ₽', total: '13 600,00 ₽', status: 'cancelled' },
-  { id: 5, created: '19.10, 16:22', executed: '19.10, 16:22', user: 'nikita', portfolio: 1, portfolioName: 'Основной', ticker: 'GAZP', order_type: 'sell', execution_type: 'market', quantity: '100', price: '128,90 ₽', total: '12 890,00 ₽', status: 'executed' },
-  { id: 6, created: '18.10, 10:03', executed: '18.10, 15:40', user: 'nikita', portfolio: 2, portfolioName: 'Крипта', ticker: 'ETH', order_type: 'buy', execution_type: 'limit', quantity: '0,2', price: '295 000,00 ₽', total: '59 000,00 ₽', status: 'executed' },
-]
+const me = ref(null);
+const tradeList = ref([]);
+const portfolioList = ref([]);
+
+onBeforeMount(async () => {
+  const [meRes, trades, portfolios] = await Promise.all([
+    axios.get("/api/profile/me/"),
+    axios.get("/api/trade/"),
+    axios.get("/api/portfolio/"),
+  ]);
+  me.value = meRes.data;
+  tradeList.value = trades.data;
+  portfolioList.value = portfolios.data;
+});
+
+const tradeRows = computed(() => {
+  const portfoliosById = Object.fromEntries(
+    portfolioList.value.map((p) => [p.id, p]),
+  );
+  return [...tradeList.value]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .map((t) => {
+      const unitPrice = t.execution_price ?? t.price;
+      const rawTotal =
+        unitPrice != null ? Number(t.quantity) * Number(unitPrice) : null;
+      return {
+        ...t,
+        portfolioName: portfoliosById[t.portfolio]?.name ?? "—",
+        createdText: formatDate(t.created_at),
+        executedText: formatDate(t.executed_at),
+        createdDate: toDateInputValue(t.created_at),
+        executedDate: toDateInputValue(t.executed_at),
+        quantityText: formatQuantity(t.quantity),
+        priceText: unitPrice != null ? `${formatPrice(unitPrice)} ₽` : "—",
+        rawTotal,
+        totalText: rawTotal != null ? `${formatPrice(rawTotal)} ₽` : "—",
+      };
+    });
+});
+
+const stats = computed(() => {
+  const list = tradeList.value;
+  const byStatus = (status) => list.filter((t) => t.status === status);
+  const share = (n) => (list.length ? Math.round((n / list.length) * 100) : 0);
+
+  const executed = byStatus("executed");
+  const turnover = (type) =>
+    executed
+      .filter((t) => t.order_type === type)
+      .reduce(
+        (sum, t) => sum + Number(t.quantity) * Number(t.execution_price),
+        0,
+      );
+  const buys = turnover("buy");
+  const sells = turnover("sell");
+
+  return {
+    total: list.length,
+    executed: executed.length,
+    executedShare: share(executed.length),
+    pending: byStatus("pending").length,
+    cancelled: byStatus("cancelled").length,
+    cancelledShare: share(byStatus("cancelled").length),
+    buys,
+    sells,
+    turnover: buys + sells,
+  };
+});
+
+const emptyFilters = () => ({
+  created: "",
+  executed: "",
+  portfolio: "",
+  ticker: "",
+  orderType: "",
+  executionType: "",
+  totalFrom: "",
+  totalTo: "",
+  status: "",
+});
+const filters = ref(emptyFilters());
+
+const filteredTrades = computed(() => {
+  const f = filters.value;
+  const ticker = f.ticker.trim().toLowerCase();
+  return tradeRows.value.filter(
+    (t) =>
+      (!f.created || t.createdDate === f.created) &&
+      (!f.executed || t.executedDate === f.executed) &&
+      (!f.portfolio || t.portfolio === f.portfolio) &&
+      (!ticker || t.instrument_info.ticker.toLowerCase().includes(ticker)) &&
+      (!f.orderType || t.order_type === f.orderType) &&
+      (!f.executionType || t.execution_type === f.executionType) &&
+      (f.totalFrom === "" || (t.rawTotal ?? 0) >= f.totalFrom) &&
+      (f.totalTo === "" || (t.rawTotal ?? 0) <= f.totalTo) &&
+      (!f.status || t.status === f.status),
+  );
+});
+
+function resetFilters() {
+  filters.value = emptyFilters();
+}
 </script>
 
 <template>
@@ -38,25 +143,31 @@ const trades = [
     <div class="split-side">
       <div class="stack">
         <section class="card profile-card">
-          <span class="avatar avatar-lg">{{ username?.slice(0, 2).toUpperCase() }}</span>
-          <h2 class="profile-name">{{ username }}</h2>
-          <span v-if="profileStore.isSuperuser" class="badge badge-admin">Суперпользователь</span>
-          <div class="info-list">
+          <span class="avatar avatar-lg">{{
+            profileStore.userName?.slice(0, 2).toUpperCase()
+          }}</span>
+          <h2 class="profile-name">{{ profileStore.userName }}</h2>
+          <span v-if="profileStore.isSuperuser" class="badge badge-admin"
+            >Суперпользователь</span
+          >
+          <div v-if="me" class="info-list">
             <div class="info-list-row">
               <span class="text-muted">Email</span>
-              <span>—</span>
+              <span>{{ me.email || "—" }}</span>
             </div>
             <div class="info-list-row">
               <span class="text-muted">Регистрация</span>
-              <span class="num">—</span>
+              <span class="num">{{
+                new Date(me.date_joined).toLocaleDateString("ru-RU")
+              }}</span>
             </div>
             <div class="info-list-row">
               <span class="text-muted">Последний вход</span>
-              <span class="num">—</span>
+              <span class="num">{{ formatDate(me.last_login) }}</span>
             </div>
             <div class="info-list-row">
               <span class="text-muted">Портфелей</span>
-              <span class="num">—</span>
+              <span class="num">{{ me.portfolios_count }}</span>
             </div>
           </div>
         </section>
@@ -66,22 +177,54 @@ const trades = [
 
       <div class="stack">
         <section class="stats-grid" aria-label="Статистика сделок">
-          <StatCard label="Всего сделок" value="57" hint="за всё время" />
-          <StatCard label="Исполнено" value="49" hint="86%" tone="up" />
-          <StatCard label="Ожидают" value="3" hint="лимитные заявки" tone="warn" />
-          <StatCard label="Отменено" value="5" hint="9%" tone="muted" />
-          <StatCard label="Оборот" value="2,84 млн ₽" hint="покупки 1,62 · продажи 1,22" />
+          <StatCard
+            label="Всего сделок"
+            :value="stats.total"
+            hint="за всё время"
+          />
+          <StatCard
+            label="Исполнено"
+            :value="stats.executed"
+            :hint="`${stats.executedShare}%`"
+            tone="up"
+          />
+          <StatCard
+            label="Ожидают"
+            :value="stats.pending"
+            hint="лимитные заявки"
+            tone="warn"
+          />
+          <StatCard
+            label="Отменено"
+            :value="stats.cancelled"
+            :hint="`${stats.cancelledShare}%`"
+            tone="muted"
+          />
+          <StatCard
+            label="Оборот"
+            :value="`${formatCompact(stats.turnover)} ₽`"
+            :hint="`покупки ${formatCompact(stats.buys)} · продажи ${formatCompact(stats.sells)}`"
+          />
         </section>
 
         <section class="card">
           <div class="table-toolbar">
-            <h2 class="table-toolbar-title">История сделок <span class="table-count">57</span></h2>
+            <h2 class="table-toolbar-title">
+              История сделок
+              <span class="table-count">{{ filteredTrades.length }}</span>
+            </h2>
             <div class="export-actions">
-              <button class="btn btn-ghost btn-sm" type="button">Сбросить фильтры</button>
+              <button
+                class="btn btn-ghost btn-sm"
+                type="button"
+                @click="resetFilters"
+              >
+                Сбросить фильтры
+              </button>
               <ExportButtons />
             </div>
           </div>
-          <div class="table-wrap">
+          <div class="table-wrap trades-scroll">
             <table class="data-table data-table-compact">
               <thead>
                 <tr>
@@ -100,30 +243,69 @@ const trades = [
                   <th>Статус</th>
                 </tr>
                 <tr class="filter-row">
-                  <th><input class="filter-input" type="date" aria-label="Создана" /></th>
-                  <th><input class="filter-input" type="date" aria-label="Исполнена" /></th>
+                  <th>
+                    <input
+                      class="filter-input"
+                      type="date"
+                      aria-label="Создана"
+                      v-model="filters.created"
+                    />
+                  </th>
+                  <th>
+                    <input
+                      class="filter-input"
+                      type="date"
+                      aria-label="Исполнена"
+                      v-model="filters.executed"
+                    />
+                  </th>
                   <th v-if="profileStore.isSuperuser">
                     <select class="filter-select" aria-label="Пользователь">
                       <option value="">Все</option>
                     </select>
                   </th>
                   <th>
-                    <select class="filter-select" aria-label="Портфель">
+                    <select
+                      v-model="filters.portfolio"
+                      class="filter-select"
+                      aria-label="Портфель"
+                    >
                       <option value="">Все</option>
+                      <option
+                        v-for="p in portfolioList"
+                        :key="p.id"
+                        :value="p.id"
+                      >
+                        {{ p.name }}
+                      </option>
                     </select>
                   </th>
                   <th>
-                    <input class="filter-input" type="search" placeholder="Тикер" aria-label="Тикер" />
+                    <input
+                      class="filter-input"
+                      type="search"
+                      placeholder="Тикер"
+                      aria-label="Тикер"
+                      v-model="filters.ticker"
+                    />
                   </th>
                   <th>
-                    <select class="filter-select" aria-label="Операция">
+                    <select
+                      class="filter-select"
+                      aria-label="Операция"
+                      v-model="filters.orderType"
+                    >
                       <option value="">Все</option>
                       <option value="buy">Покупка</option>
                       <option value="sell">Продажа</option>
                     </select>
                   </th>
                   <th>
-                    <select class="filter-select" aria-label="Исполнение">
+                    <select
+                      class="filter-select"
+                      aria-label="Исполнение"
+                      v-model="filters.executionType"
+                    >
                       <option value="">Все</option>
                       <option value="market">Рыночная</option>
                       <option value="limit">Лимитная</option>
@@ -133,12 +315,28 @@ const trades = [
                   <th></th>
                   <th>
                     <div class="filter-range">
-                      <input class="filter-input" type="number" placeholder="от" aria-label="Сумма от" />
-                      <input class="filter-input" type="number" placeholder="до" aria-label="Сумма до" />
+                      <input
+                        class="filter-input"
+                        type="number"
+                        placeholder="от"
+                        aria-label="Сумма от"
+                        v-model.number="filters.totalFrom"
+                      />
+                      <input
+                        class="filter-input"
+                        type="number"
+                        placeholder="до"
+                        aria-label="Сумма до"
+                        v-model.number="filters.totalTo"
+                      />
                     </div>
                   </th>
                   <th>
-                    <select class="filter-select" aria-label="Статус">
+                    <select
+                      class="filter-select"
+                      aria-label="Статус"
+                      v-model="filters.status"
+                    >
                       <option value="">Все</option>
                       <option value="pending">Ожидает</option>
                       <option value="executed">Исполнена</option>
@@ -148,18 +346,32 @@ const trades = [
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="trade in trades" :key="trade.id">
-                  <td class="num">{{ trade.created }}</td>
-                  <td class="num" :class="{ 'text-muted': !trade.executed }">
-                    {{ trade.executed ?? '—' }}
+                <tr v-for="trade in filteredTrades" :key="trade.id">
+                  <td class="num">{{ trade.createdText }}</td>
+                  <td class="num" :class="{ 'text-muted': !trade.executed_at }">
+                    {{ trade.executedText }}
                   </td>
-                  <td v-if="profileStore.isSuperuser">{{ trade.user }}</td>
+                  <td v-if="profileStore.isSuperuser" class="text-muted">—</td>
                   <td>
-                    <router-link :to="{ name: 'portfolio', params: { id: trade.portfolio } }">
+                    <router-link
+                      :to="{
+                        name: 'portfolio',
+                        params: { id: trade.portfolio },
+                      }"
+                    >
                       {{ trade.portfolioName }}
                     </router-link>
                   </td>
-                  <td><strong>{{ trade.ticker }}</strong></td>
+                  <td>
+                    <router-link
+                      :to="{
+                        name: 'instrument',
+                        params: { id: trade.instrument },
+                      }"
+                    >
+                      <strong>{{ trade.instrument_info.ticker }}</strong>
+                    </router-link>
+                  </td>
                   <td>
                     <span class="badge" :class="`badge-${trade.order_type}`">
                       {{ orderTypeLabels[trade.order_type] }}
@@ -170,27 +382,31 @@ const trades = [
                       {{ executionTypeLabels[trade.execution_type] }}
                     </span>
                   </td>
-                  <td class="col-num num">{{ trade.quantity }}</td>
-                  <td class="col-num num">{{ trade.price }}</td>
-                  <td class="col-num num">{{ trade.total }}</td>
+                  <td class="col-num num">{{ trade.quantityText }}</td>
+                  <td class="col-num num">{{ trade.priceText }}</td>
+                  <td class="col-num num">{{ trade.totalText }}</td>
                   <td>
                     <span class="badge" :class="`badge-${trade.status}`">
                       {{ statusLabels[trade.status] }}
                     </span>
                   </td>
                 </tr>
+                <tr v-if="!filteredTrades.length">
+                  <td
+                    :colspan="profileStore.isSuperuser ? 11 : 10"
+                    class="text-muted"
+                  >
+                    Сделок нет
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
           <div class="table-footer">
-            <span>Показано 1–6 из 57</span>
-            <nav class="pagination" aria-label="Страницы">
-              <button class="pagination-btn" type="button" aria-label="Предыдущая">‹</button>
-              <button class="pagination-btn is-active" type="button">1</button>
-              <button class="pagination-btn" type="button">2</button>
-              <button class="pagination-btn" type="button">3</button>
-              <button class="pagination-btn" type="button" aria-label="Следующая">›</button>
-            </nav>
+            <span
+              >Показано {{ filteredTrades.length }} из
+              {{ tradeList.length }}</span
+            >
           </div>
         </section>
       </div>
@@ -217,6 +433,17 @@ const trades = [
   width: 100%;
   margin-top: var(--space-3);
   text-align: left;
+}
+
+.trades-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.trades-scroll thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .info-list-row {

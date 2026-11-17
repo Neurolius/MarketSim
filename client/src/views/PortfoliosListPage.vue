@@ -13,7 +13,12 @@ import ImageModal from "@/components/modals/ImageModal.vue";
 import useProfileStore from "@/stores/profileStore";
 
 import axios from "axios";
-import { formatPrice, formatSigned } from "@/utils/format";
+import {
+  formatPrice,
+  formatSigned,
+  formatCompact,
+  formatCompactSigned,
+} from "@/utils/format";
 import { toFormData, errorText } from "@/utils/api";
 
 const profileStore = useProfileStore();
@@ -177,17 +182,17 @@ async function confirmDelete() {
       />
       <StatCard
         label="Общая стоимость"
-        :value="`${formatPrice(totals.value)} ₽`"
-        :hint="`средняя ${formatPrice(totals.avg)} ₽`"
+        :value="`${formatCompact(totals.value)} ₽`"
+        :hint="`средняя ${formatCompact(totals.avg)} ₽`"
       />
       <StatCard
         label="Свободные средства"
-        :value="`${formatPrice(totals.balance)} ₽`"
+        :value="`${formatCompact(totals.balance)} ₽`"
         :hint="`${formatPrice(totals.freeShare)}% от стоимости`"
       />
       <StatCard
         label="Прибыль / убыток"
-        :value="`${formatSigned(totals.profit)} ₽`"
+        :value="`${formatCompactSigned(totals.profit)} ₽`"
         :hint="`${formatSigned(totals.profitPercent)}% к вложенному в позиции`"
         :tone="totals.profit >= 0 ? 'up' : 'down'"
       />

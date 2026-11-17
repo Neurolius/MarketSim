@@ -7,6 +7,21 @@ const quantityFormat = new Intl.NumberFormat("ru-RU", {
   maximumFractionDigits: 4,
 });
 
+const compactFormat = new Intl.NumberFormat("ru-RU", {
+  notation: "compact",
+  maximumFractionDigits: 2,
+});
+
+export const formatCompact = (v) => compactFormat.format(Number(v));
+
+const compactSignedFormat = new Intl.NumberFormat("ru-RU", {
+  notation: "compact",
+  maximumFractionDigits: 2,
+  signDisplay: "exceptZero",
+});
+
+export const formatCompactSigned = (v) => compactSignedFormat.format(Number(v));
+
 export const formatPrice = (v) => priceFormat.format(Number(v));
 
 export const formatQuantity = (v) => quantityFormat.format(Number(v));

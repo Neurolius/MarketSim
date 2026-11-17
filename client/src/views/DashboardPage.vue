@@ -92,7 +92,6 @@ watch(leadersPeriod, fetchLeaders);
     </div>
 
     <div class="dashboard-grid">
-      <!-- Портфели -->
       <section class="card">
         <div class="card-header">
           <h2 class="card-title">Портфели</h2>
@@ -126,8 +125,6 @@ watch(leadersPeriod, fetchLeaders);
           >
         </div>
       </section>
-
-      <!-- Последние сделки -->
       <section class="card">
         <div class="card-header">
           <h2 class="card-title">Последние сделки</h2>
@@ -154,8 +151,6 @@ watch(leadersPeriod, fetchLeaders);
           </router-link>
         </EmptyState>
       </section>
-
-      <!-- Лидеры роста -->
       <section class="card">
         <div class="card-header">
           <h2 class="card-title">Лидеры роста</h2>

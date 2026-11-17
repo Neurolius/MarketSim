@@ -17,6 +17,8 @@ import {
   formatPrice,
   formatQuantity,
   formatSigned,
+  formatCompact,
+  formatCompactSigned,
   toDateInputValue,
 } from "@/utils/format";
 import { toFormData, errorText } from "@/utils/api";
@@ -59,12 +61,7 @@ async function loadPortfolio() {
 }
 
 onBeforeMount(async () => {
-  try {
-    await loadPortfolio();
-  } catch (e) {
-    if (e.response?.status === 404) router.replace({ name: "not-found" });
-    else throw e;
-  }
+  await loadPortfolio();
 });
 
 const positionRows = computed(() => {
@@ -313,22 +310,22 @@ async function cancelTrade() {
     <section class="stats-grid" aria-label="Статистика портфеля">
       <StatCard
         label="Стоимость"
-        :value="`${formatPrice(totals.value)} ₽`"
+        :value="`${formatCompact(totals.value)} ₽`"
         hint="баланс + позиции"
       />
       <StatCard
         label="Баланс"
-        :value="`${formatPrice(totals.balance)} ₽`"
+        :value="`${formatCompact(totals.balance)} ₽`"
         hint="доступно для покупок"
       />
       <StatCard
         label="В позициях"
-        :value="`${formatPrice(totals.positionsValue)} ₽`"
+        :value="`${formatCompact(totals.positionsValue)} ₽`"
         :hint="`инструментов: ${positionRows.length}`"
       />
       <StatCard
         label="П/У по позициям"
-        :value="`${formatSigned(totals.profit)} ₽`"
+        :value="`${formatCompactSigned(totals.profit)} ₽`"
         :hint="`${formatSigned(totals.percent)}% от вложенного`"
         :tone="totals.profit >= 0 ? 'up' : 'down'"
       />

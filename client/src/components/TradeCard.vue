@@ -67,7 +67,6 @@ const total = computed(
           >
           <template v-else>{{ formatPrice(unitPrice) }} ₽</template>
         </span>
-        <!-- сумма сделки: количество × цена -->
         <span class="trade-card-total">{{ formatPrice(total) }} ₽</span>
       </div>
     </div>

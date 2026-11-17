@@ -10,7 +10,7 @@ import useProfileStore from "@/stores/profileStore";
 import axios from "axios";
 import { mapInstrument } from "@/utils/InstrumentsMapper";
 import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal.vue";
-import { formatPrice } from "@/utils/format";
+import { formatCompact } from "@/utils/format";
 import { toFormData, errorText } from "@/utils/api";
 
 const profileStore = useProfileStore();
@@ -159,14 +159,14 @@ async function deleteInstrument() {
       />
       <StatCard
         label="Средняя цена"
-        :value="priceStats ? `${formatPrice(priceStats.avg)} ₽` : '-'"
-        :hint="priceStats ? `медиана ${formatPrice(priceStats.median)} ₽` : ''"
+        :value="priceStats ? `${formatCompact(priceStats.avg)} ₽` : '-'"
+        :hint="priceStats ? `медиана ${formatCompact(priceStats.median)} ₽` : ''"
       />
       <StatCard
         label="Мин / макс цена"
         :value="
           priceStats
-            ? `${formatPrice(priceStats.cheapest.rawPrice)} / ${formatPrice(priceStats.priciest.rawPrice)} ₽`
+            ? `${formatCompact(priceStats.cheapest.rawPrice)} / ${formatCompact(priceStats.priciest.rawPrice)} ₽`
             : '—'
         "
         :hint="

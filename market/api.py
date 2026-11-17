@@ -35,7 +35,11 @@ class ProfileViewSet(GenericViewSet):
             data.update({
                 "username": self.request.user.username,
                 "id": self.request.user.id,
-                "is_superuser": self.request.user.is_superuser
+                "is_superuser": self.request.user.is_superuser,
+                "email": self.request.user.email,
+                "date_joined": self.request.user.date_joined,
+                "last_login": self.request.user.last_login,
+                "portfolios_count": self.request.user.portfolios.count()
             })
         return Response(data=data)
 

@@ -1,25 +1,26 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import useProfileStore from '@/stores/profileStore'
-import AppIcon from '@/components/AppIcon.vue'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import useProfileStore from "@/stores/profileStore";
+import AppIcon from "@/components/AppIcon.vue";
 
-const router = useRouter()
-const profileStore = useProfileStore()
+const router = useRouter();
+const profileStore = useProfileStore();
 
-const username = ref('')
-const email = ref('')
-const password = ref('')
-const passwordRepeat = ref('')
-const errorMessage = ref('')
+const username = ref("");
+const email = ref("");
+const password = ref("");
+const passwordRepeat = ref("");
+const errorMessage = ref("");
 
 async function handleRegister() {
   try {
-    await profileStore.register(username.value, password.value)
-    router.push({ name: 'dashboard' })
+    await profileStore.register(username.value, password.value);
+    router.push({ name: "dashboard" });
   } catch (error) {
     errorMessage.value =
-      error.response?.data?.detail || 'Произошла ошибка при регистрации. Попробуйте снова.'
+      error.response?.data?.detail ||
+      "Произошла ошибка при регистрации. Попробуйте снова.";
   }
 }
 </script>
@@ -53,7 +54,6 @@ async function handleRegister() {
             autocomplete="username"
             required
           />
-          <!-- ошибка поля: <span class="form-error-text">Пользователь с таким именем уже существует</span> -->
         </div>
         <div class="form-field">
           <label class="form-label" for="reg-email">Email</label>
@@ -80,7 +80,9 @@ async function handleRegister() {
           <span class="form-hint">Не менее 8 символов</span>
         </div>
         <div class="form-field">
-          <label class="form-label" for="reg-password-repeat">Повторите пароль</label>
+          <label class="form-label" for="reg-password-repeat"
+            >Повторите пароль</label
+          >
           <input
             id="reg-password-repeat"
             v-model="passwordRepeat"
@@ -89,9 +91,10 @@ async function handleRegister() {
             autocomplete="new-password"
             required
           />
-          <!-- ошибка поля: <span class="form-error-text">Пароли не совпадают</span> -->
         </div>
-        <button class="btn btn-primary btn-lg btn-block" type="submit">Создать аккаунт</button>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">
+          Создать аккаунт
+        </button>
       </div>
 
       <p class="auth-footer">
