@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeMount, ref } from "vue";
+import { computed, onBeforeMount, ref, watch } from "vue";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import StatCard from "@/components/StatCard.vue";
@@ -19,12 +19,19 @@ import {
   formatSigned,
   formatCompact,
   formatCompactSigned,
-  toDateInputValue,
 } from "@/utils/format";
 import { toFormData, errorText } from "@/utils/requestFormatter";
-import { byId, sortByNewest, inRange, matchesText } from "@/utils/lists";
+import {
+  byId,
+  listResults,
+} from "@/utils/lists";
 import { calcPosition } from "@/utils/positions";
-import { orderTypeLabels, executionTypeLabels, statusLabels } from "@/utils/labels";
+import {
+  orderTypeLabels,
+  executionTypeLabels,
+  statusLabels,
+} from "@/utils/labels";
+import PaginationControls from "@/components/PaginationControls.vue";
 
 const isEditOpen = ref(false);
 const isDeleteOpen = ref(false);
@@ -39,20 +46,98 @@ const portfolio = ref(null);
 const positionList = ref([]);
 const tradeList = ref([]);
 const typesList = ref([]);
+const portfolioStats = ref(null);
+const pageSize = 20;
+const positionPage = ref(1);
+const tradePage = ref(1);
+const positionCount = ref(0);
+const tradeCount = ref(0);
+
+const emptyPositionFilters = () => ({
+  ticker: "",
+  type: "",
+  qtyFrom: "",
+  qtyTo: "",
+  valueFrom: "",
+  valueTo: "",
+  result: "",
+});
+const positionFilters = ref(emptyPositionFilters());
+
+const emptyTradeFilters = () => ({
+  date: "",
+  ticker: "",
+  orderType: "",
+  executionType: "",
+  status: "",
+});
+const tradeFilters = ref(emptyTradeFilters());
+
+function positionParams() {
+  const params = {
+    portfolio: route.params.id,
+    page: positionPage.value,
+    page_size: pageSize,
+  };
+  const filters = {
+    ticker: positionFilters.value.ticker,
+    type: positionFilters.value.type,
+    quantity_from: positionFilters.value.qtyFrom,
+    quantity_to: positionFilters.value.qtyTo,
+    value_from: positionFilters.value.valueFrom,
+    value_to: positionFilters.value.valueTo,
+    result: positionFilters.value.result,
+  };
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== "") params[key] = value;
+  });
+  return params;
+}
+
+function tradeParams() {
+  const params = {
+    portfolio: route.params.id,
+    page: tradePage.value,
+    page_size: pageSize,
+  };
+  const filters = {
+    created: tradeFilters.value.date,
+    ticker: tradeFilters.value.ticker,
+    order_type: tradeFilters.value.orderType,
+    execution_type: tradeFilters.value.executionType,
+    status: tradeFilters.value.status,
+  };
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) params[key] = value;
+  });
+  return params;
+}
+
+async function loadPositions() {
+  const { data } = await axios.get("/api/position/", {
+    params: positionParams(),
+  });
+  positionList.value = listResults(data);
+  positionCount.value = data.count ?? positionList.value.length;
+}
+
+async function loadTrades() {
+  const { data } = await axios.get("/api/trade/", { params: tradeParams() });
+  tradeList.value = listResults(data);
+  tradeCount.value = data.count ?? tradeList.value.length;
+}
 
 async function loadPortfolio() {
   const id = route.params.id;
-  const params = { portfolio: id };
-  const [portfolioRes, positions, trades, types] = await Promise.all([
+  const [portfolioRes, typesRes, statsRes] = await Promise.all([
     axios.get(`/api/portfolio/${id}/`),
-    axios.get("/api/position/", { params }),
-    axios.get("/api/trade/", { params }),
-    axios.get("/api/instrumenttype/"),
+    axios.get("/api/instrumenttype/", { params: { page_size: 100 } }),
+    axios.get("/api/portfolio/stats/", { params: { portfolio: id } }),
   ]);
   portfolio.value = portfolioRes.data;
-  positionList.value = positions.data;
-  tradeList.value = trades.data;
-  typesList.value = types.data;
+  typesList.value = listResults(typesRes.data);
+  portfolioStats.value = statsRes.data;
+  await Promise.all([loadPositions(), loadTrades()]);
 }
 
 onBeforeMount(async () => {
@@ -80,69 +165,29 @@ const positionRows = computed(() => {
         percentText: `${formatSigned(c.percent)}%`,
         isUp: c.profit >= 0,
       };
-    })
-    .sort((a, b) => b.rawProfit - a.rawProfit);
+    });
 });
 
 const totals = computed(() => {
-  const rows = positionRows.value;
-  const positionsValue = rows.reduce((sum, r) => sum + r.rawValue, 0);
-  const cost = rows.reduce((sum, r) => sum + r.rawCost, 0);
-  const profit = positionsValue - cost;
+  const stats = portfolioStats.value ?? {};
+  const positionsValue = Number(stats.positionsValue ?? 0);
+  const profit = Number(stats.profit ?? 0);
   const balance = Number(portfolio.value?.balance ?? 0);
+  const cost = positionsValue - profit;
   return {
     balance,
     positionsValue,
-    value: balance + positionsValue,
+    value: Number(stats.totalValue ?? balance + positionsValue),
     profit,
     percent: cost ? (profit / cost) * 100 : 0,
-    pendingCount: tradeList.value.filter((t) => t.status === "pending").length,
+    positionsCount: Number(stats.positionsCount ?? 0),
+    tradeCount: Number(stats.tradeCount ?? 0),
+    pendingCount: Number(stats.pendingCount ?? 0),
   };
 });
 
-const emptyPositionFilters = () => ({
-  ticker: "",
-  type: "",
-  qtyFrom: "",
-  qtyTo: "",
-  valueFrom: "",
-  valueTo: "",
-  result: "",
-});
-const positionFilters = ref(emptyPositionFilters());
-
-const filteredPositions = computed(() => {
-  const f = positionFilters.value;
-  return positionRows.value.filter(
-    (p) =>
-      matchesText(p.instrument_info.ticker, f.ticker) &&
-      (!f.type || p.typeId === f.type) &&
-      inRange(Number(p.quantity), f.qtyFrom, f.qtyTo) &&
-      inRange(p.rawValue, f.valueFrom, f.valueTo) &&
-      (!f.result || (f.result === "profit" ? p.rawProfit > 0 : p.rawProfit < 0)),
-  );
-});
-
-const emptyTradeFilters = () => ({
-  date: "",
-  ticker: "",
-  orderType: "",
-  executionType: "",
-  status: "",
-});
-const tradeFilters = ref(emptyTradeFilters());
-
-const filteredTrades = computed(() => {
-  const f = tradeFilters.value;
-  return sortByNewest(tradeList.value).filter(
-    (t) =>
-      (!f.date || toDateInputValue(t.created_at) === f.date) &&
-      matchesText(t.instrument_info.ticker, f.ticker) &&
-      (!f.orderType || t.order_type === f.orderType) &&
-      (!f.executionType || t.execution_type === f.executionType) &&
-      (!f.status || t.status === f.status),
-  );
-});
+const filteredPositions = positionRows;
+const filteredTrades = computed(() => tradeList.value);
 
 const formError = ref("");
 const isSaving = ref(false);
@@ -156,7 +201,10 @@ async function savePortfolio(data) {
   formError.value = "";
   isSaving.value = true;
   try {
-    await axios.patch(`/api/portfolio/${portfolio.value.id}/`, toFormData(data));
+    await axios.patch(
+      `/api/portfolio/${portfolio.value.id}/`,
+      toFormData(data),
+    );
     isEditOpen.value = false;
     await loadPortfolio();
   } catch (e) {
@@ -237,6 +285,30 @@ async function cancelTrade() {
     cancellingTrade.value = null;
   }
 }
+
+const visiblePositions = positionRows;
+const visibleTrades = tradeList;
+
+watch(
+  positionFilters,
+  () => {
+    if (positionPage.value !== 1) positionPage.value = 1;
+    else loadPositions();
+  },
+  { deep: true },
+);
+
+watch(
+  tradeFilters,
+  () => {
+    if (tradePage.value !== 1) tradePage.value = 1;
+    else loadTrades();
+  },
+  { deep: true },
+);
+
+watch(positionPage, loadPositions);
+watch(tradePage, loadTrades);
 </script>
 
 <template>
@@ -273,7 +345,11 @@ async function cancelTrade() {
             <AppIcon name="edit" />
             Изменить
           </button>
-          <button class="btn btn-danger" type="button" @click="isDeleteOpen = true">
+          <button
+            class="btn btn-danger"
+            type="button"
+            @click="isDeleteOpen = true"
+          >
             <AppIcon name="trash" />
             Удалить
           </button>
@@ -295,7 +371,7 @@ async function cancelTrade() {
       <StatCard
         label="В позициях"
         :value="`${formatCompact(totals.positionsValue)} ₽`"
-        :hint="`инструментов: ${positionRows.length}`"
+        :hint="`инструментов: ${totals.positionsCount}`"
       />
       <StatCard
         label="П/У по позициям"
@@ -305,7 +381,7 @@ async function cancelTrade() {
       />
       <StatCard
         label="Сделок"
-        :value="tradeList.length"
+        :value="totals.tradeCount"
         :hint="`ожидают исполнения: ${totals.pendingCount}`"
       />
     </section>
@@ -314,7 +390,7 @@ async function cancelTrade() {
       <div class="table-toolbar">
         <h2 class="table-toolbar-title">
           Позиции
-          <span class="table-count">{{ filteredPositions.length }}</span>
+          <span class="table-count">{{ positionCount }}</span>
         </h2>
         <div class="export-actions">
           <ExportButtons />
@@ -346,9 +422,17 @@ async function cancelTrade() {
                 />
               </th>
               <th>
-                <select v-model="positionFilters.type" class="filter-select" aria-label="Тип">
+                <select
+                  v-model="positionFilters.type"
+                  class="filter-select"
+                  aria-label="Тип"
+                >
                   <option value="">Все</option>
-                  <option v-for="type in typesList" :key="type.id" :value="type.id">
+                  <option
+                    v-for="type in typesList"
+                    :key="type.id"
+                    :value="type.id"
+                  >
                     {{ type.name }}
                   </option>
                 </select>
@@ -406,7 +490,7 @@ async function cancelTrade() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="position in filteredPositions" :key="position.id">
+            <tr v-for="position in visiblePositions" :key="position.id">
               <td>
                 <div class="cell-instrument">
                   <InstrumentLogo
@@ -424,7 +508,9 @@ async function cancelTrade() {
                     >
                       {{ position.instrument_info.ticker }}
                     </router-link>
-                    <span class="cell-instrument-name">{{ position.instrument_info.name }}</span>
+                    <span class="cell-instrument-name">{{
+                      position.instrument_info.name
+                    }}</span>
                   </span>
                 </div>
               </td>
@@ -436,15 +522,25 @@ async function cancelTrade() {
               <td class="col-num num">{{ position.currentText }} ₽</td>
               <td class="col-num num">{{ position.valueText }} ₽</td>
               <td class="col-num">
-                <div class="price-change" :class="position.isUp ? 'is-up' : 'is-down'">
+                <div
+                  class="price-change"
+                  :class="position.isUp ? 'is-up' : 'is-down'"
+                >
                   {{ position.profitText }}
                 </div>
-                <div class="price-change text-xs" :class="position.isUp ? 'is-up' : 'is-down'">
+                <div
+                  class="price-change text-xs"
+                  :class="position.isUp ? 'is-up' : 'is-down'"
+                >
                   {{ position.percentText }}
                 </div>
               </td>
               <td class="col-actions">
-                <button class="btn btn-sell btn-sm" type="button" @click="openSell(position)">
+                <button
+                  class="btn btn-sell btn-sm"
+                  type="button"
+                  @click="openSell(position)"
+                >
                   Продать
                 </button>
               </td>
@@ -458,22 +554,32 @@ async function cancelTrade() {
       <div class="table-footer">
         <span
           >Итого в позициях:
-          <strong class="num">{{ formatPrice(totals.positionsValue) }} ₽</strong></span
+          <strong class="num"
+            >{{ formatPrice(totals.positionsValue) }} ₽</strong
+          ></span
         >
         <span
           >Общий П/У:
-          <span class="price-change" :class="totals.profit >= 0 ? 'is-up' : 'is-down'"
+          <span
+            class="price-change"
+            :class="totals.profit >= 0 ? 'is-up' : 'is-down'"
             >{{ formatSigned(totals.profit) }} ₽</span
           >
         </span>
       </div>
+      <PaginationControls
+        v-if="positionCount"
+        v-model:page="positionPage"
+        :count="positionCount"
+        :page-size="pageSize"
+      />
     </section>
 
     <section class="card">
       <div class="table-toolbar">
         <h2 class="table-toolbar-title">
           Сделки портфеля
-          <span class="table-count">{{ filteredTrades.length }}</span>
+          <span class="table-count">{{ tradeCount }}</span>
         </h2>
         <div class="export-actions">
           <ExportButtons />
@@ -538,7 +644,11 @@ async function cancelTrade() {
               <th></th>
               <th></th>
               <th>
-                <select class="filter-select" aria-label="Статус" v-model="tradeFilters.status">
+                <select
+                  class="filter-select"
+                  aria-label="Статус"
+                  v-model="tradeFilters.status"
+                >
                   <option value="">Все</option>
                   <option value="pending">Ожидает</option>
                   <option value="executed">Исполнена</option>
@@ -550,12 +660,14 @@ async function cancelTrade() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="trade in filteredTrades" :key="trade.id">
+            <tr v-for="trade in visibleTrades" :key="trade.id">
               <td class="num">
                 {{ new Date(trade.created_at).toLocaleString() }}
               </td>
               <td>
-                <router-link :to="{ name: 'instrument', params: { id: trade.instrument } }">
+                <router-link
+                  :to="{ name: 'instrument', params: { id: trade.instrument } }"
+                >
                   <strong>{{ trade.instrument_info.ticker }}</strong>
                 </router-link>
               </td>
@@ -573,8 +685,15 @@ async function cancelTrade() {
               <td class="col-num num" :class="{ 'text-muted': !trade.price }">
                 {{ trade.price ? `${formatPrice(trade.price)} ₽` : "—" }}
               </td>
-              <td class="col-num num" :class="{ 'text-muted': !trade.execution_price }">
-                {{ trade.execution_price ? `${formatPrice(trade.execution_price)} ₽` : "—" }}
+              <td
+                class="col-num num"
+                :class="{ 'text-muted': !trade.execution_price }"
+              >
+                {{
+                  trade.execution_price
+                    ? `${formatPrice(trade.execution_price)} ₽`
+                    : "—"
+                }}
               </td>
               <td>
                 <span class="badge" :class="`badge-${trade.status}`">
@@ -602,7 +721,11 @@ async function cancelTrade() {
               </td>
               <td class="col-actions">
                 <template v-if="trade.status === 'pending'">
-                  <button class="btn btn-ghost btn-sm" type="button" @click="openTradeEdit(trade)">
+                  <button
+                    class="btn btn-ghost btn-sm"
+                    type="button"
+                    @click="openTradeEdit(trade)"
+                  >
                     Изменить
                   </button>
                   <button
@@ -622,8 +745,16 @@ async function cancelTrade() {
         </table>
       </div>
       <div class="table-footer">
-        <span>Показано {{ filteredTrades.length }} из {{ tradeList.length }}</span>
+        <span
+          >Показано {{ tradeList.length }} из {{ tradeCount }}</span
+        >
       </div>
+      <PaginationControls
+        v-if="tradeCount"
+        v-model:page="tradePage"
+        :count="tradeCount"
+        :page-size="pageSize"
+      />
     </section>
   </main>
 
@@ -684,7 +815,11 @@ async function cancelTrade() {
   height: 160px;
   padding: 0;
   border: 0;
-  background: repeating-linear-gradient(135deg, #e3e8f0 0 12px, #d9dfe9 12px 24px);
+  background: repeating-linear-gradient(
+    135deg,
+    #e3e8f0 0 12px,
+    #d9dfe9 12px 24px
+  );
   cursor: zoom-in;
 }
 

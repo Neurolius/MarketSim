@@ -1,36 +1,51 @@
 <script setup>
-import { computed, onBeforeMount, ref } from "vue";
+import { computed, onBeforeMount, ref, watch } from "vue";
 import axios from "axios";
 import { toFormData, errorText } from "@/utils/requestFormatter";
-import { inRange, matchesText } from "@/utils/lists";
+import { inRange, matchesText, listResults } from "@/utils/lists";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import StatCard from "@/components/StatCard.vue";
 import ExportButtons from "@/components/ExportButtons.vue";
 import InstrumentTypeFormModal from "@/components/modals/InstrumentTypeFormModal.vue";
 import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal.vue";
+import PaginationControls from "@/components/PaginationControls.vue";
 
 const formType = ref(null);
 const deleteType = ref(null);
 const errorMessage = ref("");
 const typesList = ref([]);
+const page = ref(1);
+const pageSize = 20;
+const totalCount = ref(0);
+const globalStats = ref({ type_count: 0, instrument_count: 0 });
 
 async function loadTypes() {
-  const r = await axios.get("/api/instrumenttype/");
-  typesList.value = r.data;
+  const [r, stats] = await Promise.all([
+    axios.get("/api/instrumenttype/", {
+      params: { page: page.value, page_size: pageSize },
+    }),
+    axios.get("/api/instrumenttype/stats/"),
+  ]);
+  typesList.value = listResults(r.data);
+  totalCount.value = r.data.count ?? typesList.value.length;
+  globalStats.value = stats.data;
 }
 
 onBeforeMount(loadTypes);
+watch(page, loadTypes);
 
 const stats = computed(() => {
   const list = typesList.value;
-  const total = list.reduce((sum, t) => sum + t.instruments_count, 0);
+  const total = globalStats.value.instrument_count ?? 0;
   const largest = list.length
     ? list.reduce((a, b) => (b.instruments_count > a.instruments_count ? b : a))
     : null;
   return {
     total,
-    avg: list.length ? Math.round(total / list.length) : 0,
+    avg: globalStats.value.type_count
+      ? Math.round(total / globalStats.value.type_count)
+      : 0,
     largest,
   };
 });
@@ -64,7 +79,8 @@ async function saveType(data) {
     if (id) await axios.patch(`/api/instrumenttype/${id}/`, toFormData(data));
     else await axios.post("/api/instrumenttype/", toFormData(data));
     formType.value = null;
-    await loadTypes();
+    if (!id && page.value !== 1) page.value = 1;
+    else await loadTypes();
   } catch (e) {
     formError.value = errorText(e);
   } finally {
@@ -76,7 +92,8 @@ async function confirmDelete() {
   errorMessage.value = "";
   try {
     await axios.delete(`/api/instrumenttype/${deleteType.value.id}/`);
-    await loadTypes();
+    if (page.value > 1 && typesList.value.length === 1) page.value -= 1;
+    else await loadTypes();
   } catch (e) {
     errorMessage.value = errorText(e);
   } finally {
@@ -105,7 +122,7 @@ async function confirmDelete() {
     </div>
 
     <section class="stats-grid" aria-label="Статистика">
-      <StatCard label="Типов" :value="typesList.length" hint="в справочнике" />
+      <StatCard label="Типов" :value="totalCount" hint="в справочнике" />
       <StatCard
         label="Инструментов"
         :value="stats.total"
@@ -131,7 +148,9 @@ async function confirmDelete() {
       <div class="table-toolbar">
         <h2 class="table-toolbar-title">
           Справочник
-          <span class="table-count">{{ filteredTypes.length }}</span>
+          <span class="table-count"
+            >{{ filteredTypes.length }} из {{ totalCount }}</span
+          >
         </h2>
         <div class="export-actions">
           <ExportButtons />
@@ -224,6 +243,11 @@ async function confirmDelete() {
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        v-model:page="page"
+        :count="totalCount"
+        :page-size="pageSize"
+      />
     </section>
   </main>
 

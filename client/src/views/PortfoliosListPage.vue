@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeMount, ref } from "vue";
+import { computed, onBeforeMount, ref, watch } from "vue";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import StatCard from "@/components/StatCard.vue";
@@ -20,8 +20,8 @@ import {
   formatCompactSigned,
 } from "@/utils/format";
 import { toFormData, errorText } from "@/utils/requestFormatter";
-import { inRange, matchesText } from "@/utils/lists";
-import { calcPosition } from "@/utils/positions";
+import { listResults } from "@/utils/lists";
+import PaginationControls from "@/components/PaginationControls.vue";
 
 const profileStore = useProfileStore();
 
@@ -31,66 +31,81 @@ const coverPortfolio = ref(null);
 const isTwoFactorOpen = ref(false);
 
 const portfolioList = ref([]);
-const positionList = ref([]);
+const usersList = ref([]);
+const page = ref(1);
+const pageSize = 20;
+const totalCount = ref(0);
+const portfolioStats = ref(null);
 
 async function loadPortfolios() {
-  const [portfolios, positions] = await Promise.all([
-    axios.get("/api/portfolio/"),
-    axios.get("/api/position/"),
-  ]);
-  portfolioList.value = portfolios.data;
-  positionList.value = positions.data;
+  const params = { page: page.value, page_size: pageSize };
+  if (profileStore.isSuperuser && filters.value.userId) {
+    params.user = filters.value.userId;
+  }
+  if (filters.value.name) params.search = filters.value.name;
+  if (filters.value.balanceFrom !== "") {
+    params.balance_from = filters.value.balanceFrom;
+  }
+  if (filters.value.balanceTo !== "") {
+    params.balance_to = filters.value.balanceTo;
+  }
+  if (filters.value.valueFrom !== "") {
+    params.value_from = filters.value.valueFrom;
+  }
+  if (filters.value.valueTo !== "") {
+    params.value_to = filters.value.valueTo;
+  }
+
+  const requests = [
+    axios.get("/api/portfolio/", { params }),
+    axios.get("/api/portfolio/stats/", { params: { user: params.user } }),
+  ];
+  if (profileStore.isSuperuser) {
+    requests.push(axios.get("/api/profile/users/"));
+  }
+
+  const [portfolios, stats, users] = await Promise.all(requests);
+  portfolioList.value = listResults(portfolios.data);
+  totalCount.value = portfolios.data.count ?? portfolioList.value.length;
+  portfolioStats.value = stats.data;
+  if (users) usersList.value = users.data;
 }
 
 onBeforeMount(loadPortfolios);
+watch(page, loadPortfolios);
 
-const portfolioRows = computed(() => {
-  const stats = {};
-  for (const pos of positionList.value) {
-    if (!stats[pos.portfolio])
-      stats[pos.portfolio] = { positionsValue: 0, cost: 0, count: 0 };
-    const s = stats[pos.portfolio];
-    const c = calcPosition(pos);
-    s.positionsValue += c.value;
-    s.cost += c.cost;
-    s.count += 1;
-  }
-
-  return portfolioList.value.map((p) => {
-    const s = stats[p.id] ?? { positionsValue: 0, cost: 0, count: 0 };
+const portfolioRows = computed(() =>
+  portfolioList.value.map((p) => {
+    const positionsValue = Number(p.positions_value ?? 0);
+    const cost = Number(p.positions_cost ?? 0);
     const balance = Number(p.balance);
-    const value = balance + s.positionsValue;
-    const profit = s.positionsValue - s.cost;
-    const percent = s.cost ? (profit / s.cost) * 100 : 0;
+    const value = balance + positionsValue;
+    const profit = positionsValue - cost;
+    const percent = cost ? (profit / cost) * 100 : 0;
     return {
       ...p,
       rawBalance: balance,
       rawValue: value,
       rawProfit: profit,
-      rawCost: s.cost,
-      positionsCount: s.count,
+      rawCost: cost,
+      positionsCount: Number(p.positions_count ?? 0),
       valueText: `${formatPrice(value)} ₽`,
       profitText: `${formatSigned(profit)} ₽`,
-      change: s.cost ? `${formatSigned(percent)}%` : "",
+      change: cost ? `${formatSigned(percent)}%` : "",
       isUp: profit >= 0,
     };
-  });
-});
+  }),
+);
 
 const totals = computed(() => {
-  const rows = portfolioRows.value;
-  const sum = (key) => rows.reduce((total, p) => total + p[key], 0);
-  const value = sum("rawValue");
-  const balance = sum("rawBalance");
-  const profit = sum("rawProfit");
-  const cost = sum("rawCost");
+  const stats = portfolioStats.value ?? {};
   return {
-    value,
-    balance,
-    profit,
-    avg: rows.length ? value / rows.length : 0,
-    freeShare: value ? (balance / value) * 100 : 0,
-    profitPercent: cost ? (profit / cost) * 100 : 0,
+    value: Number(stats.totalValue ?? 0),
+    balance: Number(stats.balance ?? 0),
+    profit: Number(stats.profit ?? 0),
+    avg: Number(stats.avg ?? 0),
+    freeShare: Number(stats.freeShare ?? 0),
+    profitPercent: Number(stats.profitPercent ?? 0),
   };
 });
 
@@ -100,18 +115,20 @@ const emptyFilters = () => ({
   balanceTo: "",
   valueFrom: "",
   valueTo: "",
+  userId: "",
 });
 const filters = ref(emptyFilters());
 
-const filteredPortfolios = computed(() => {
-  const f = filters.value;
-  return portfolioRows.value.filter(
-    (p) =>
-      matchesText(p.name, f.name) &&
-      inRange(p.rawBalance, f.balanceFrom, f.balanceTo) &&
-      inRange(p.rawValue, f.valueFrom, f.valueTo),
-  );
-});
+watch(
+  filters,
+  () => {
+    if (page.value !== 1) page.value = 1;
+    else loadPortfolios();
+  },
+  { deep: true },
+);
+
+const filteredPortfolios = portfolioRows;
 
 function resetFilters() {
   filters.value = emptyFilters();
@@ -134,7 +151,8 @@ async function savePortfolio(data) {
     if (id) await axios.patch(`/api/portfolio/${id}/`, body);
     else await axios.post("/api/portfolio/", body);
     formPortfolio.value = null;
-    await loadPortfolios();
+    if (!id && page.value !== 1) page.value = 1;
+    else await loadPortfolios();
   } catch (e) {
     formError.value = errorText(e);
   } finally {
@@ -145,7 +163,8 @@ async function savePortfolio(data) {
 async function confirmDelete() {
   await axios.delete(`/api/portfolio/${deletePortfolio.value.id}/`);
   deletePortfolio.value = null;
-  await loadPortfolios();
+  if (page.value > 1 && portfolioList.value.length === 1) page.value -= 1;
+  else await loadPortfolios();
 }
 </script>
 
@@ -175,7 +194,7 @@ async function confirmDelete() {
     <section class="stats-grid" aria-label="Статистика">
       <StatCard
         label="Портфелей"
-        :value="portfolioList.length"
+        :value="totalCount"
         :hint="`по фильтру: ${filteredPortfolios.length}`"
       />
       <StatCard
@@ -249,8 +268,11 @@ async function confirmDelete() {
         <label class="form-label" for="pf-owner">
           Владелец <span class="admin-only-tag">админ</span>
         </label>
-        <select id="pf-owner" class="form-select">
+        <select id="pf-owner" v-model="filters.userId" class="form-select">
           <option value="">Все пользователи</option>
+          <option v-for="user in usersList" :key="user.id" :value="user.id">
+            {{ user.username }} (ID: {{ user.id }})
+          </option>
         </select>
       </div>
       <button class="btn btn-ghost" type="button" @click="resetFilters">
@@ -301,6 +323,11 @@ async function confirmDelete() {
         </button>
       </EmptyState>
     </section>
+    <PaginationControls
+      v-model:page="page"
+      :count="totalCount"
+      :page-size="pageSize"
+    />
   </main>
 
   <PortfolioFormModal

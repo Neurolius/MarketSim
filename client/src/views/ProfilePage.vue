@@ -4,9 +4,9 @@ import StatCard from "@/components/StatCard.vue";
 import ExportButtons from "@/components/ExportButtons.vue";
 import TwoFactorCard from "@/components/TwoFactorCard.vue";
 import useProfileStore from "@/stores/profileStore";
-import { computed, onBeforeMount, ref } from "vue";
+import { computed, onBeforeMount, ref, watch } from "vue";
 import axios from "axios";
-import { byId, sortByNewest, inRange, matchesText } from "@/utils/lists";
+import { listResults } from "@/utils/lists";
 import {
   formatPrice,
   formatQuantity,
@@ -14,33 +14,70 @@ import {
   formatCompact,
   toDateInputValue,
 } from "@/utils/format";
-import { orderTypeLabels, executionTypeLabels, statusLabels } from "@/utils/labels";
+import {
+  orderTypeLabels,
+  executionTypeLabels,
+  statusLabels,
+} from "@/utils/labels";
+import PaginationControls from "@/components/PaginationControls.vue";
 
 const profileStore = useProfileStore();
 
 const me = ref(null);
 const tradeList = ref([]);
 const portfolioList = ref([]);
+const stats = ref({
+  total: 0,
+  executed: 0,
+  executedShare: 0,
+  pending: 0,
+  cancelled: 0,
+  cancelledShare: 0,
+  buys: 0,
+  sells: 0,
+});
+const tradePage = ref(1);
+const tradeCount = ref(0);
+const pageSize = 20;
+
+async function loadTrades() {
+  const params = { page: tradePage.value, page_size: pageSize };
+  const f = filters.value;
+  if (f.created) params.created = f.created;
+  if (f.executed) params.executed = f.executed;
+  if (f.portfolio) params.portfolio = f.portfolio;
+  if (f.ticker) params.ticker = f.ticker;
+  if (f.orderType) params.order_type = f.orderType;
+  if (f.executionType) params.execution_type = f.executionType;
+  if (f.totalFrom !== "") params.total_from = f.totalFrom;
+  if (f.totalTo !== "") params.total_to = f.totalTo;
+  if (f.status) params.status = f.status;
+
+  const { data } = await axios.get("/api/trade/", { params });
+  tradeList.value = listResults(data);
+  tradeCount.value = data.count ?? tradeList.value.length;
+}
 
 onBeforeMount(async () => {
-  const [meRes, trades, portfolios] = await Promise.all([
+  const [meRes, portfoliosRes, statsRes] = await Promise.all([
     axios.get("/api/profile/me/"),
-    axios.get("/api/trade/"),
-    axios.get("/api/portfolio/"),
+    axios.get("/api/portfolio/", { params: { page_size: 100 } }),
+    axios.get("/api/trade/stats/"),
   ]);
   me.value = meRes.data;
-  tradeList.value = trades.data;
-  portfolioList.value = portfolios.data;
+  portfolioList.value = listResults(portfoliosRes.data);
+  stats.value = statsRes.data;
+  await loadTrades();
 });
 
 const tradeRows = computed(() => {
-  const portfoliosById = byId(portfolioList.value);
-  return sortByNewest(tradeList.value).map((t) => {
+  return tradeList.value.map((t) => {
     const unitPrice = t.execution_price ?? t.price;
-    const rawTotal = unitPrice != null ? Number(t.quantity) * Number(unitPrice) : null;
+    const rawTotal =
+      unitPrice != null ? Number(t.quantity) * Number(unitPrice) : null;
     return {
       ...t,
-      portfolioName: portfoliosById[t.portfolio]?.name ?? "—",
+      portfolioName: t.portfolio_name ?? "—",
       createdText: formatDate(t.created_at),
       executedText: formatDate(t.executed_at),
       createdDate: toDateInputValue(t.created_at),
@@ -53,31 +90,7 @@ const tradeRows = computed(() => {
   });
 });
 
-const stats = computed(() => {
-  const list = tradeList.value;
-  const byStatus = (status) => list.filter((t) => t.status === status);
-  const share = (n) => (list.length ? Math.round((n / list.length) * 100) : 0);
-
-  const executed = byStatus("executed");
-  const turnover = (type) =>
-    executed
-      .filter((t) => t.order_type === type)
-      .reduce((sum, t) => sum + Number(t.quantity) * Number(t.execution_price), 0);
-  const buys = turnover("buy");
-  const sells = turnover("sell");
-
-  return {
-    total: list.length,
-    executed: executed.length,
-    executedShare: share(executed.length),
-    pending: byStatus("pending").length,
-    cancelled: byStatus("cancelled").length,
-    cancelledShare: share(byStatus("cancelled").length),
-    buys,
-    sells,
-    turnover: buys + sells,
-  };
-});
+const turnover = computed(() => Number(stats.value.buys) + Number(stats.value.sells));
 
 const emptyFilters = () => ({
   created: "",
@@ -92,24 +105,24 @@ const emptyFilters = () => ({
 });
 const filters = ref(emptyFilters());
 
-const filteredTrades = computed(() => {
-  const f = filters.value;
-  return tradeRows.value.filter(
-    (t) =>
-      (!f.created || t.createdDate === f.created) &&
-      (!f.executed || t.executedDate === f.executed) &&
-      (!f.portfolio || t.portfolio === f.portfolio) &&
-      matchesText(t.instrument_info.ticker, f.ticker) &&
-      (!f.orderType || t.order_type === f.orderType) &&
-      (!f.executionType || t.execution_type === f.executionType) &&
-      inRange(t.rawTotal ?? 0, f.totalFrom, f.totalTo) &&
-      (!f.status || t.status === f.status),
-  );
-});
+const filteredTrades = tradeRows;
 
 function resetFilters() {
   filters.value = emptyFilters();
 }
+
+const visibleTrades = tradeRows;
+
+watch(
+  filters,
+  () => {
+    if (tradePage.value !== 1) tradePage.value = 1;
+    else loadTrades();
+  },
+  { deep: true },
+);
+
+watch(tradePage, loadTrades);
 </script>
 
 <template>
@@ -118,7 +131,9 @@ function resetFilters() {
     <div class="page-header">
       <div>
         <h1 class="page-title">Профиль</h1>
-        <p class="page-subtitle">Данные аккаунта, двухфакторная защита и полная история сделок</p>
+        <p class="page-subtitle">
+          Данные аккаунта, двухфакторная защита и полная история сделок
+        </p>
       </div>
     </div>
 
@@ -129,7 +144,9 @@ function resetFilters() {
             profileStore.userName?.slice(0, 2).toUpperCase()
           }}</span>
           <h2 class="profile-name">{{ profileStore.userName }}</h2>
-          <span v-if="profileStore.isSuperuser" class="badge badge-admin">Суперпользователь</span>
+          <span v-if="profileStore.isSuperuser" class="badge badge-admin"
+            >Суперпользователь</span
+          >
           <div v-if="me" class="info-list">
             <div class="info-list-row">
               <span class="text-muted">Email</span>
@@ -137,7 +154,9 @@ function resetFilters() {
             </div>
             <div class="info-list-row">
               <span class="text-muted">Регистрация</span>
-              <span class="num">{{ new Date(me.date_joined).toLocaleDateString("ru-RU") }}</span>
+              <span class="num">{{
+                new Date(me.date_joined).toLocaleDateString("ru-RU")
+              }}</span>
             </div>
             <div class="info-list-row">
               <span class="text-muted">Последний вход</span>
@@ -155,14 +174,23 @@ function resetFilters() {
 
       <div class="stack">
         <section class="stats-grid" aria-label="Статистика сделок">
-          <StatCard label="Всего сделок" :value="stats.total" hint="за всё время" />
+          <StatCard
+            label="Всего сделок"
+            :value="stats.total"
+            hint="за всё время"
+          />
           <StatCard
             label="Исполнено"
             :value="stats.executed"
             :hint="`${stats.executedShare}%`"
             tone="up"
           />
-          <StatCard label="Ожидают" :value="stats.pending" hint="лимитные заявки" tone="warn" />
+          <StatCard
+            label="Ожидают"
+            :value="stats.pending"
+            hint="лимитные заявки"
+            tone="warn"
+          />
           <StatCard
             label="Отменено"
             :value="stats.cancelled"
@@ -171,7 +199,7 @@ function resetFilters() {
           />
           <StatCard
             label="Оборот"
-            :value="`${formatCompact(stats.turnover)} ₽`"
+            :value="`${formatCompact(turnover)} ₽`"
             :hint="`покупки ${formatCompact(stats.buys)} · продажи ${formatCompact(stats.sells)}`"
           />
         </section>
@@ -180,10 +208,14 @@ function resetFilters() {
           <div class="table-toolbar">
             <h2 class="table-toolbar-title">
               История сделок
-              <span class="table-count">{{ filteredTrades.length }}</span>
+              <span class="table-count">{{ tradeCount }}</span>
             </h2>
             <div class="export-actions">
-              <button class="btn btn-ghost btn-sm" type="button" @click="resetFilters">
+              <button
+                class="btn btn-ghost btn-sm"
+                type="button"
+                @click="resetFilters"
+              >
                 Сбросить фильтры
               </button>
               <ExportButtons />
@@ -230,9 +262,17 @@ function resetFilters() {
                     </select>
                   </th>
                   <th>
-                    <select v-model="filters.portfolio" class="filter-select" aria-label="Портфель">
+                    <select
+                      v-model="filters.portfolio"
+                      class="filter-select"
+                      aria-label="Портфель"
+                    >
                       <option value="">Все</option>
-                      <option v-for="p in portfolioList" :key="p.id" :value="p.id">
+                      <option
+                        v-for="p in portfolioList"
+                        :key="p.id"
+                        :value="p.id"
+                      >
                         {{ p.name }}
                       </option>
                     </select>
@@ -247,7 +287,11 @@ function resetFilters() {
                     />
                   </th>
                   <th>
-                    <select class="filter-select" aria-label="Операция" v-model="filters.orderType">
+                    <select
+                      class="filter-select"
+                      aria-label="Операция"
+                      v-model="filters.orderType"
+                    >
                       <option value="">Все</option>
                       <option value="buy">Покупка</option>
                       <option value="sell">Продажа</option>
@@ -285,7 +329,11 @@ function resetFilters() {
                     </div>
                   </th>
                   <th>
-                    <select class="filter-select" aria-label="Статус" v-model="filters.status">
+                    <select
+                      class="filter-select"
+                      aria-label="Статус"
+                      v-model="filters.status"
+                    >
                       <option value="">Все</option>
                       <option value="pending">Ожидает</option>
                       <option value="executed">Исполнена</option>
@@ -295,7 +343,7 @@ function resetFilters() {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="trade in filteredTrades" :key="trade.id">
+                <tr v-for="trade in visibleTrades" :key="trade.id">
                   <td class="num">{{ trade.createdText }}</td>
                   <td class="num" :class="{ 'text-muted': !trade.executed_at }">
                     {{ trade.executedText }}
@@ -341,7 +389,10 @@ function resetFilters() {
                   </td>
                 </tr>
                 <tr v-if="!filteredTrades.length">
-                  <td :colspan="profileStore.isSuperuser ? 11 : 10" class="text-muted">
+                  <td
+                    :colspan="profileStore.isSuperuser ? 11 : 10"
+                    class="text-muted"
+                  >
                     Сделок нет
                   </td>
                 </tr>
@@ -349,8 +400,16 @@ function resetFilters() {
             </table>
           </div>
           <div class="table-footer">
-            <span>Показано {{ filteredTrades.length }} из {{ tradeList.length }}</span>
+            <span
+              >Показано {{ visibleTrades.length }} из {{ tradeCount }}</span
+            >
           </div>
+          <PaginationControls
+            v-if="tradeCount"
+            v-model:page="tradePage"
+            :count="tradeCount"
+            :page-size="pageSize"
+          />
         </section>
       </div>
     </div>

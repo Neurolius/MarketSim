@@ -20,6 +20,13 @@ class InstrumentSerializer(serializers.ModelSerializer):
 
 class PortfolioSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)
+    positions_count = serializers.IntegerField(read_only=True, default=0)
+    positions_value = serializers.DecimalField(
+        max_digits=30, decimal_places=4, read_only=True, default=0
+    )
+    positions_cost = serializers.DecimalField(
+        max_digits=30, decimal_places=4, read_only=True, default=0
+    )
     
     def create(self, validated_data):
         if 'request' in self.context:
@@ -37,7 +44,10 @@ class PortfolioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Portfolio
-        fields = ['id', 'name', 'user', 'user_name', 'balance', 'cover_image']
+        fields = [
+            'id', 'name', 'user', 'user_name', 'balance', 'cover_image',
+            'positions_count', 'positions_value', 'positions_cost',
+        ]
         read_only_fields = ['user']
 
 
@@ -59,10 +69,11 @@ class PriceHistorySerializer(serializers.ModelSerializer):
 
 class TradeSerializer(serializers.ModelSerializer):
     instrument_info = InstrumentSerializer(source='instrument', read_only=True)
+    portfolio_name = serializers.CharField(source='portfolio.name', read_only=True)
 
     class Meta:
         model = Trade
-        fields = ['id', 'portfolio', 'instrument', 'instrument_info', 'order_type',
+        fields = ['id', 'portfolio', 'portfolio_name', 'instrument', 'instrument_info', 'order_type',
                   'execution_type', 'quantity', 'price', 'status',
                   'execution_price', 'created_at', 'executed_at', 'image']
         read_only_fields = ['execution_price', 'status', 'created_at', 'executed_at']

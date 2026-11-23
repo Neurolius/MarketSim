@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeMount, computed } from "vue";
+import { ref, onBeforeMount, computed, watch } from "vue";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import StatCard from "@/components/StatCard.vue";
@@ -12,27 +12,18 @@ import { mapInstrument } from "@/utils/InstrumentsMapper";
 import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal.vue";
 import { formatCompact } from "@/utils/format";
 import { toFormData, errorText } from "@/utils/requestFormatter";
-import { byId, inRange, matchesText } from "@/utils/lists";
+import { byId, listResults } from "@/utils/lists";
+import PaginationControls from "@/components/PaginationControls.vue";
 
 const profileStore = useProfileStore();
 
 const instrumentsList = ref([]);
 const typesList = ref([]);
 const isInstrumentModalOpen = ref(false);
-
-async function loadInstruments() {
-  const [instruments, types] = await Promise.all([
-    axios.get("/api/instrument/"),
-    axios.get("/api/instrumenttype/"),
-  ]);
-  const typesById = byId(types.data);
-  instrumentsList.value = instruments.data.map((i) =>
-    mapInstrument(i, typesById),
-  );
-  typesList.value = types.data;
-}
-
-onBeforeMount(loadInstruments);
+const page = ref(1);
+const totalCount = ref(0);
+const pageSize = 20;
+const stats = ref(null);
 
 const emptyFilters = () => ({
   search: "",
@@ -44,48 +35,76 @@ const emptyFilters = () => ({
 });
 const filters = ref(emptyFilters());
 
-const filteredInstrumentsList = computed(() => {
-  const f = filters.value;
-  return instrumentsList.value.filter(
-    (i) =>
-      (matchesText(i.ticker, f.search) || matchesText(i.name, f.search)) &&
-      (!f.type || i.typeId === f.type) &&
-      inRange(i.rawPrice, f.priceFrom, f.priceTo) &&
-      (!f.change || (f.change === "up" ? i.rawChange > 0 : i.rawChange < 0)) &&
-      (!f.updatedDate || i.updatedDate === f.updatedDate),
+async function loadInstruments() {
+  const params = { page: page.value, page_size: pageSize };
+  if (filters.value.search) params.search = filters.value.search;
+  if (filters.value.type) params.type = filters.value.type;
+  if (filters.value.priceFrom !== "") params.price_from = filters.value.priceFrom;
+  if (filters.value.priceTo !== "") params.price_to = filters.value.priceTo;
+  if (filters.value.change) params.change = filters.value.change;
+  if (filters.value.updatedDate) params.updated_date = filters.value.updatedDate;
+
+  const [instruments, types, statsResponse] = await Promise.all([
+    axios.get("/api/instrument/", {
+      params,
+    }),
+    axios.get("/api/instrumenttype/", { params: { page_size: 100 } }),
+    axios.get("/api/instrument/stats/", { params }),
+  ]);
+  const rawInstruments = listResults(instruments.data);
+  const rawTypes = listResults(types.data);
+  totalCount.value = instruments.data.count ?? rawInstruments.length;
+  stats.value = statsResponse.data;
+  instrumentsList.value = rawInstruments.map((item) =>
+    mapInstrument(item, byId(rawTypes)),
   );
-});
+  typesList.value = rawTypes;
+}
+
+onBeforeMount(loadInstruments);
+
+watch(page, loadInstruments);
+
+const filteredInstrumentsList = computed(() => instrumentsList.value);
 
 function resetFilters() {
   filters.value = emptyFilters();
 }
 
 const priceStats = computed(() => {
-  const list = instrumentsList.value;
-  if (!list.length) return null;
-  const prices = list.map((i) => i.rawPrice).sort((a, b) => a - b);
-  const mid = Math.floor(prices.length / 2);
+  const data = stats.value;
+  if (!data?.count) return null;
   return {
-    avg: prices.reduce((sum, p) => sum + p, 0) / prices.length,
-    median:
-      prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2,
-    cheapest: list.reduce((a, b) => (b.rawPrice < a.rawPrice ? b : a)),
-    priciest: list.reduce((a, b) => (b.rawPrice > a.rawPrice ? b : a)),
+    avg: Number(data.average),
+    median: Number(data.median),
+    cheapest: {
+      rawPrice: Number(data.cheapest.current_price),
+      ticker: data.cheapest.ticker,
+    },
+    priciest: {
+      rawPrice: Number(data.priciest.current_price),
+      ticker: data.priciest.ticker,
+    },
   };
 });
 
-const upCount = computed(
-  () => instrumentsList.value.filter((i) => i.rawChange > 0).length,
-);
-const downCount = computed(
-  () => instrumentsList.value.filter((i) => i.rawChange < 0).length,
-);
+const upCount = computed(() => stats.value?.rising_count ?? 0);
+const downCount = computed(() => stats.value?.falling_count ?? 0);
 
 const countByType = computed(() =>
-  typesList.value.map((t) => ({
-    name: t.name,
-    count: instrumentsList.value.filter((i) => i.typeId === t.id).length,
+  (stats.value?.by_type ?? []).map((type) => ({
+    name: type.instrument_type__name,
+    count: type.count,
   })),
+);
+
+watch(
+  filters,
+  () => {
+    if (page.value !== 1) page.value = 1;
+    else loadInstruments();
+  },
+  { deep: true },
 );
 const editingInstrument = ref(null);
 const deletingInstrument = ref(null);
@@ -151,8 +170,8 @@ async function deleteInstrument() {
     <section class="stats-grid" aria-label="Статистика">
       <StatCard
         label="Инструментов"
-        :value="instrumentsList.length"
-        :hint="`по текущему фильтру: ${filteredInstrumentsList.length}`"
+        :value="totalCount"
+        :hint="`по текущему фильтру: ${totalCount}`"
       />
       <StatCard
         label="Средняя цена"
@@ -190,8 +209,7 @@ async function deleteInstrument() {
         <h2 class="table-toolbar-title">
           Каталог
           <span class="table-count"
-            >{{ filteredInstrumentsList.length }} из
-            {{ instrumentsList.length }}</span
+            >{{ totalCount }}</span
           >
         </h2>
         <div class="export-actions">
@@ -375,9 +393,14 @@ async function deleteInstrument() {
       <div class="table-footer">
         <span
           >Показано {{ filteredInstrumentsList.length }} из
-          {{ instrumentsList.length }}</span
+          {{ totalCount }}</span
         >
       </div>
+      <PaginationControls
+        v-model:page="page"
+        :count="totalCount"
+        :page-size="pageSize"
+      />
     </section>
   </main>
 

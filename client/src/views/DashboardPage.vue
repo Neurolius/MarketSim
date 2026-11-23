@@ -9,62 +9,53 @@ import axios from "axios";
 import { computed, onBeforeMount, ref, watch } from "vue";
 import { mapInstrument } from "@/utils/InstrumentsMapper.js";
 import { formatPrice } from "@/utils/format.js";
-import { byId, sortByNewest } from "@/utils/lists";
-import { calcPosition } from "@/utils/positions";
+import { listResults } from "@/utils/lists";
+import PaginationControls from "@/components/PaginationControls.vue";
 
 const portfoliosList = ref([]);
 const tradeList = ref([]);
-const positionList = ref([]);
-
+const portfolioPage = ref(1);
+const pageSize = 20;
+const portfolioCount = ref(0);
+const portfolioStats = ref(null);
+const visiblePortfolios = computed(() => portfoliosList.value);
+const lastTrades = computed(() => tradeList.value);
 const portfoliosBalance = computed(() =>
-  portfoliosList.value.reduce((total, p) => total + Number(p.balance), 0),
+  Number(portfolioStats.value?.balance ?? 0),
 );
-
-const portfoliosById = computed(() => byId(portfoliosList.value));
-
-const lastTrades = computed(() => sortByNewest(tradeList.value).slice(0, 10));
-
-const portfolioStats = computed(() => {
-  const stats = Object.fromEntries(
-    portfoliosList.value.map((p) => [
-      p.id,
-      { value: Number(p.balance), positionsCount: 0 },
-    ]),
-  );
-  for (const pos of positionList.value) {
-    const s = stats[pos.portfolio];
-    if (!s) continue;
-    s.positionsCount += 1;
-    s.value += calcPosition(pos).value;
-  }
-  return stats;
-});
-
-onBeforeMount(async () => {
-  fetchLeaders();
-  const [portfolios, trades, positions] = await Promise.all([
-    axios.get("/api/portfolio/"),
-    axios.get("/api/trade/"),
-    axios.get("/api/position/"),
-  ]);
-  portfoliosList.value = portfolios.data;
-  tradeList.value = trades.data;
-  positionList.value = positions.data;
-});
 
 const leadersPeriod = ref("day");
 const leaders = ref([]);
 
 async function fetchLeaders() {
-  const r = await axios.get("/api/instrument/", {
+  const { data } = await axios.get("/api/instrument/leaders/", {
     params: { period: leadersPeriod.value },
   });
-  leaders.value = r.data
-    .map((i) => mapInstrument(i, {}))
-    .sort((a, b) => b.rawChange - a.rawChange)
-    .slice(0, 6);
+  leaders.value = data.map((item) => mapInstrument(item, {}));
 }
 
+async function loadPortfolios() {
+  const { data } = await axios.get("/api/portfolio/", {
+    params: { page: portfolioPage.value, page_size: pageSize },
+  });
+  portfoliosList.value = listResults(data);
+  portfolioCount.value = data.count ?? portfoliosList.value.length;
+}
+
+async function loadDashboard() {
+  const [trades, stats] = await Promise.all([
+    axios.get("/api/trade/", { params: { page: 1, page_size: 10 } }),
+    axios.get("/api/portfolio/stats/"),
+  ]);
+  tradeList.value = listResults(trades.data);
+  portfolioStats.value = stats.data;
+}
+
+onBeforeMount(async () => {
+  await Promise.all([loadDashboard(), loadPortfolios(), fetchLeaders()]);
+});
+
+watch(portfolioPage, loadPortfolios);
 watch(leadersPeriod, fetchLeaders);
 </script>
 
@@ -97,13 +88,19 @@ watch(leadersPeriod, fetchLeaders);
         </div>
         <div v-if="portfoliosList.length" class="portfolio-list">
           <PortfolioShortCard
-            v-for="portfolio in portfoliosList"
+            v-for="portfolio in visiblePortfolios"
             :key="portfolio.id"
             :portfolio="portfolio"
-            :value="formatPrice(portfolioStats[portfolio.id].value)"
-            :positionsCount="portfolioStats[portfolio.id].positionsCount"
+            :value="formatPrice(Number(portfolio.balance) + Number(portfolio.positions_value ?? 0))"
+            :positionsCount="portfolio.positions_count ?? 0"
           />
         </div>
+        <PaginationControls
+          v-if="portfolioCount"
+          v-model:page="portfolioPage"
+          :count="portfolioCount"
+          :page-size="pageSize"
+        />
         <EmptyState
           v-else
           icon="briefcase"
@@ -133,7 +130,7 @@ watch(leadersPeriod, fetchLeaders);
             v-for="trade in lastTrades"
             :key="trade.id"
             :trade="trade"
-            :portfolio="portfoliosById[trade.portfolio]"
+            :portfolio="{ name: trade.portfolio_name }"
           />
         </div>
         <EmptyState

@@ -9,3 +9,6 @@ export const inRange = (value, from, to) =>
 
 export const matchesText = (text, search) =>
   !search.trim() || text.toLowerCase().includes(search.trim().toLowerCase());
+
+export const listResults = (data) =>
+  Array.isArray(data) ? data : (data.results ?? []);

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeMount, computed } from "vue";
+import { ref, onBeforeMount, computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import InstrumentLogo from "@/components/InstrumentLogo.vue";
@@ -19,8 +19,9 @@ import {
   toDateInputValue,
 } from "@/utils/format";
 import { toFormData, errorText } from "@/utils/requestFormatter";
-import { byId } from "@/utils/lists";
+import { byId, listResults } from "@/utils/lists";
 import { calcPosition } from "@/utils/positions";
+import PaginationControls from "@/components/PaginationControls.vue";
 
 const isLogoModalOpen = ref(false);
 const sellPosition = ref(null);
@@ -30,24 +31,80 @@ const route = useRoute();
 const router = useRouter();
 const positionList = ref([]);
 const priceHistoryList = ref([]);
+const chartHistoryList = ref([]);
+const historyStats = ref(null);
+const positionCount = ref(0);
+const historyCount = ref(0);
+const pageSize = 20;
+const positionPage = ref(1);
+const historyPage = ref(1);
 
-onBeforeMount(async () => {
-  const id = route.params.id;
-  const [instrument, type, portfolios, history, positions] = await Promise.all([
-    axios.get(`/api/instrument/${id}/`, {
-      params: { period: "day" },
-    }),
-    axios.get("/api/instrumenttype/"),
-    axios.get("/api/portfolio/"),
-    axios.get("/api/pricehistory/", { params: { instrument: id } }),
-    axios.get("/api/position/", { params: { instrument: id } }),
-  ]);
-  const typesById = byId(type.data);
-  instrumentTrade.value = mapInstrument(instrument.data, typesById);
-  portfolioList.value = portfolios.data;
-  priceHistoryList.value = history.data;
-  positionList.value = positions.data;
+const historyFilters = ref({
+  dateFrom: "",
+  dateTo: "",
+  priceFrom: "",
+  priceTo: "",
 });
+
+async function loadInstrument() {
+  const id = route.params.id;
+  const [instrument, types, portfolios, chartHistory, stats] = await Promise.all([
+    axios.get(`/api/instrument/${id}/`, { params: { period: "day" } }),
+    axios.get("/api/instrumenttype/", { params: { page_size: 100 } }),
+    axios.get("/api/portfolio/", { params: { page_size: 100 } }),
+    axios.get("/api/pricehistory/", {
+      params: { instrument: id, page: 1, page_size: 100 },
+    }),
+    axios.get("/api/pricehistory/stats/", { params: { instrument: id } }),
+  ]);
+  const instrumentTypes = listResults(types.data);
+  instrumentTrade.value = mapInstrument(instrument.data, byId(instrumentTypes));
+  portfolioList.value = listResults(portfolios.data);
+  chartHistoryList.value = listResults(chartHistory.data);
+  historyStats.value = stats.data.count ? stats.data : null;
+  await Promise.all([loadPositions(), loadHistory()]);
+}
+
+onBeforeMount(loadInstrument);
+
+async function loadPositions() {
+  const { data } = await axios.get("/api/position/", {
+    params: {
+      instrument: route.params.id,
+      page: positionPage.value,
+      page_size: pageSize,
+    },
+  });
+  positionList.value = listResults(data);
+  positionCount.value = data.count ?? positionList.value.length;
+}
+
+async function loadHistory() {
+  const params = {
+    instrument: route.params.id,
+    page: historyPage.value,
+    page_size: pageSize,
+  };
+  if (historyFilters.value.dateFrom) {
+    params.date_from = historyFilters.value.dateFrom;
+  }
+  if (historyFilters.value.dateTo) {
+    params.date_to = historyFilters.value.dateTo;
+  }
+  if (historyFilters.value.priceFrom !== "") {
+    params.price_from = historyFilters.value.priceFrom;
+  }
+  if (historyFilters.value.priceTo !== "") {
+    params.price_to = historyFilters.value.priceTo;
+  }
+
+  const { data } = await axios.get("/api/pricehistory/", { params });
+  priceHistoryList.value = listResults(data);
+  historyCount.value = data.count ?? priceHistoryList.value.length;
+}
+
+const visiblePositions = computed(() => positionRows.value);
+const visibleHistory = computed(() => historyRows.value);
 
 const positionRows = computed(() => {
   const portfoliosById = byId(portfolioList.value);
@@ -81,35 +138,7 @@ const historyRows = computed(() =>
   }),
 );
 
-const historyFilters = ref({
-  dateFrom: "",
-  dateTo: "",
-  priceFrom: "",
-  priceTo: "",
-});
-
-const filteredHistory = computed(() => {
-  const f = historyFilters.value;
-  return historyRows.value.filter(
-    (r) =>
-      (!f.dateFrom || r.date >= f.dateFrom) &&
-      (!f.dateTo || r.date <= f.dateTo) &&
-      (f.priceFrom === "" || r.rawPrice >= f.priceFrom) &&
-      (f.priceTo === "" || r.rawPrice <= f.priceTo),
-  );
-});
-
-const historyStats = computed(() => {
-  const prices = priceHistoryList.value.map((r) => Number(r.price));
-  if (!prices.length) return null;
-  return {
-    avg: prices.reduce((sum, p) => sum + p, 0) / prices.length,
-    min: Math.min(...prices),
-    max: Math.max(...prices),
-  };
-});
-
-const chartRecords = computed(() => [...priceHistoryList.value].reverse());
+const chartRecords = computed(() => [...chartHistoryList.value].reverse());
 
 const chartLabels = computed(() =>
   chartRecords.value.map((r) => formatDate(r.timestamp)),
@@ -119,15 +148,15 @@ const chartPrices = computed(() =>
 );
 
 const chartStats = computed(() => {
-  const prices = chartPrices.value;
-  if (prices.length < 2) return null;
-  const first = prices[0];
-  const last = prices.at(-1);
+  const stats = historyStats.value;
+  if (!stats || stats.count < 2) return null;
+  const first = Number(stats.first);
+  const last = Number(stats.last);
   return {
     first,
-    min: Math.min(...prices),
-    max: Math.max(...prices),
-    change: (last / first - 1) * 100,
+    min: Number(stats.min),
+    max: Number(stats.max),
+    change: first ? (last / first - 1) * 100 : 0,
   };
 });
 
@@ -137,12 +166,11 @@ const sellError = ref("");
 const isSubmitting = ref(false);
 
 async function reloadPortfolios() {
-  const [portfolios, positions] = await Promise.all([
-    axios.get("/api/portfolio/"),
-    axios.get("/api/position/", { params: { instrument: route.params.id } }),
-  ]);
-  positionList.value = positions.data;
-  portfolioList.value = portfolios.data;
+  const { data } = await axios.get("/api/portfolio/", {
+    params: { page_size: 100 },
+  });
+  portfolioList.value = listResults(data);
+  await loadPositions();
 }
 
 async function createTrade(data) {
@@ -187,6 +215,17 @@ async function onSell(data) {
     isSubmitting.value = false;
   }
 }
+watch(
+  historyFilters,
+  () => {
+    if (historyPage.value !== 1) historyPage.value = 1;
+    else loadHistory();
+  },
+  { deep: true },
+);
+
+watch(historyPage, loadHistory);
+watch(positionPage, loadPositions);
 </script>
 
 <template>
@@ -302,12 +341,12 @@ async function onSell(data) {
               </tr>
             </thead>
             <tbody>
-              <tr v-if="!positionRows.length">
+              <tr v-if="!positionCount">
                 <td colspan="5" class="text-muted">
                   В ваших портфелях нет этого инструмента
                 </td>
               </tr>
-              <tr v-for="position in positionRows" :key="position.id">
+              <tr v-for="position in visiblePositions" :key="position.id">
                 <td>
                   <router-link
                     :to="{
@@ -341,13 +380,19 @@ async function onSell(data) {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          v-if="positionCount"
+          v-model:page="positionPage"
+          :count="positionCount"
+          :page-size="pageSize"
+        />
       </section>
 
       <section class="card">
         <div class="table-toolbar">
           <h2 class="table-toolbar-title">
             История цен
-            <span class="table-count">{{ filteredHistory.length }}</span>
+            <span class="table-count">{{ historyCount }}</span>
           </h2>
           <div class="export-actions">
             <ExportButtons />
@@ -400,7 +445,7 @@ async function onSell(data) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in filteredHistory" :key="record.id">
+              <tr v-for="record in visibleHistory" :key="record.id">
                 <td class="num">{{ record.timestamp }}</td>
                 <td class="col-num num">{{ record.price }} ₽</td>
                 <td class="col-num">
@@ -422,6 +467,12 @@ async function onSell(data) {
             {{ formatPrice(historyStats.max) }} ₽</span
           >
         </div>
+        <PaginationControls
+          v-if="historyCount"
+          v-model:page="historyPage"
+          :count="historyCount"
+          :page-size="pageSize"
+        />
       </section>
     </div>
   </main>
