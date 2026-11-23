@@ -3,9 +3,11 @@ from market.models import InstrumentType, Instrument, Portfolio, Position, Price
 
 
 class InstrumentTypeSerializer(serializers.ModelSerializer):
+    instruments_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = InstrumentType
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'instruments_count']
 
 class InstrumentSerializer(serializers.ModelSerializer):
     prev_price = serializers.DecimalField(max_digits=15, decimal_places=4, read_only=True, allow_null=True)

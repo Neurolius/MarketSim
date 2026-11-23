@@ -24,6 +24,9 @@ from django.utils import timezone
 
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
+from django.db.models import Count
+from rest_framework.exceptions import ValidationError
+
 class ProfileViewSet(GenericViewSet):
     queryset = User.objects.all()
     @action(detail=False, url_path="me", methods=['GET'])
@@ -90,10 +93,19 @@ class InstrumentTypeViewset(
     GenericViewSet):
     queryset = InstrumentType.objects.all()
     serializer_class = InstrumentTypeSerializer
+
     def get_permissions(self):
         if self.action in ('list', 'retrieve'):
             return [IsAuthenticated()]
         return [IsAdminUser()]
+    
+    def get_queryset(self):
+        return super().get_queryset().annotate(instruments_count=Count('instrument'))
+
+    def perform_destroy(self, instance):
+        if instance.instrument_set.exists():
+            raise ValidationError('Нельзя удалить тип, к которому привязаны инструменты')
+        instance.delete()
 
 class InstrumentViewset(
     mixins.CreateModelMixin,
