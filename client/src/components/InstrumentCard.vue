@@ -10,7 +10,6 @@ defineProps({
     type: Number,
     default: null,
   },
-  // изменение цены за период, например '+6,42%'
   change: {
     type: String,
     default: "",
@@ -19,7 +18,6 @@ defineProps({
     type: Boolean,
     default: true,
   },
-  // точки мини-графика в координатах 72×28, например '0,22 10,20 20,23 …'
   sparkPoints: {
     type: String,
     default: "",

@@ -1,25 +1,23 @@
 <script setup>
-import AppIcon from '@/components/AppIcon.vue'
-import CodeInput from '@/components/CodeInput.vue'
+import AppIcon from "@/components/AppIcon.vue";
+import CodeInput from "@/components/CodeInput.vue";
 
 defineProps({
-  // код подтверждён и действует
   isConfirmed: {
     type: Boolean,
     default: false,
   },
-  // до какого времени действует подтверждение, например '15:05'
   activeUntil: {
     type: String,
-    default: '',
+    default: "",
   },
   error: {
     type: String,
-    default: '',
+    default: "",
   },
-})
+});
 
-defineEmits(['submit', 'resend'])
+defineEmits(["submit", "resend"]);
 </script>
 
 <template>
@@ -29,16 +27,24 @@ defineEmits(['submit', 'resend'])
     </div>
     <form class="card-body form" @submit.prevent="$emit('submit')">
       <div class="twofa-status">
-        <span class="twofa-status-icon" :class="isConfirmed ? 'is-on' : 'is-off'">
-          <AppIcon :name="isConfirmed ? 'shield-check' : 'shield-alert'" large />
+        <span
+          class="twofa-status-icon"
+          :class="isConfirmed ? 'is-on' : 'is-off'"
+        >
+          <AppIcon
+            :name="isConfirmed ? 'shield-check' : 'shield-alert'"
+            large
+          />
         </span>
         <div>
-          <div class="text-strong">{{ isConfirmed ? 'Код подтверждён' : 'Код не подтверждён' }}</div>
+          <div class="text-strong">
+            {{ isConfirmed ? "Код подтверждён" : "Код не подтверждён" }}
+          </div>
           <div class="text-muted text-sm">
             {{
               isConfirmed
-                ? 'Можно изменять и удалять данные'
-                : 'Без кода нельзя изменять и удалять данные'
+                ? "Можно изменять и удалять данные"
+                : "Без кода нельзя изменять и удалять данные"
             }}
           </div>
         </div>

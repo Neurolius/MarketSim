@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, ref } from "vue";
 import AppIcon from "@/components/AppIcon.vue";
 import BaseModal from "@/components/BaseModal.vue";
 import ImageUpload from "@/components/ImageUpload.vue";
+import { useImagePreview } from "@/composables/useImagePreview";
 
 const props = defineProps({
   portfolio: { type: Object, default: null },
@@ -13,22 +14,12 @@ const emit = defineEmits(["close", "submit"]);
 
 const name = ref(props.portfolio?.name ?? "");
 const balance = ref(100000);
-const coverFile = ref(null);
-const coverPreview = ref(props.portfolio?.cover_image ?? "");
 
-function onCoverChange(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  coverFile.value = file;
-  if (coverPreview.value.startsWith("blob:"))
-    URL.revokeObjectURL(coverPreview.value);
-  coverPreview.value = URL.createObjectURL(file);
-}
-
-onBeforeUnmount(() => {
-  if (coverPreview.value.startsWith("blob:"))
-    URL.revokeObjectURL(coverPreview.value);
-});
+const {
+  file: coverFile,
+  preview: coverPreview,
+  onFileChange: onCoverChange,
+} = useImagePreview(props.portfolio?.cover_image);
 
 const canSubmit = computed(
   () =>

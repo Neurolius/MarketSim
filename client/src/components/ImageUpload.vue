@@ -1,40 +1,38 @@
 <script setup>
-import AppIcon from '@/components/AppIcon.vue'
+import AppIcon from "@/components/AppIcon.vue";
 
 defineProps({
   id: {
     type: String,
     required: true,
   },
-  // ссылка на текущее изображение: null — без превью, '' — пустая заглушка превью
   previewUrl: {
     type: String,
     default: null,
   },
-  // круглое превью — для логотипов
   round: {
     type: Boolean,
     default: false,
   },
   icon: {
     type: String,
-    default: 'upload',
+    default: "upload",
   },
   actionText: {
     type: String,
-    default: 'Выберите файл',
+    default: "Выберите файл",
   },
   text: {
     type: String,
-    default: 'или перетащите сюда',
+    default: "или перетащите сюда",
   },
   hint: {
     type: String,
-    default: 'PNG, JPG до 5 МБ',
+    default: "PNG, JPG до 5 МБ",
   },
-})
+});
 
-defineEmits(['change', 'open-preview'])
+defineEmits(["change", "open-preview"]);
 </script>
 
 <template>
@@ -83,7 +81,11 @@ defineEmits(['change', 'open-preview'])
   overflow: hidden;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  background: repeating-linear-gradient(135deg, #e3e8f0 0 10px, #d9dfe9 10px 20px);
+  background: repeating-linear-gradient(
+    135deg,
+    #e3e8f0 0 10px,
+    #d9dfe9 10px 20px
+  );
   display: grid;
   place-items: center;
   font-size: 11px;

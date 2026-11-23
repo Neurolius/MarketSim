@@ -2,6 +2,11 @@
 import InstrumentLogo from "@/components/InstrumentLogo.vue";
 import { formatPrice, formatQuantity } from "@/utils/format.js";
 import { computed } from "vue";
+import {
+  orderTypeLabels,
+  executionTypeLabels,
+  statusLabels,
+} from "@/utils/labels";
 
 const props = defineProps({
   trade: {
@@ -13,14 +18,6 @@ const props = defineProps({
     default: null,
   },
 });
-
-const orderTypeLabels = { buy: "Покупка", sell: "Продажа" };
-const executionTypeLabels = { market: "Рыночная", limit: "Лимитная" };
-const statusLabels = {
-  pending: "Ожидает",
-  executed: "Исполнена",
-  cancelled: "Отменена",
-};
 
 const unitPrice = computed(
   () =>

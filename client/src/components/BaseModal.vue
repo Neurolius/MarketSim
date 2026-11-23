@@ -1,24 +1,22 @@
 <script setup>
-import AppIcon from '@/components/AppIcon.vue'
+import AppIcon from "@/components/AppIcon.vue";
 
 defineProps({
   title: {
     type: String,
-    default: '',
+    default: "",
   },
-  // 'sm' | 'md' | 'lg'
   size: {
     type: String,
-    default: 'md',
+    default: "md",
   },
-  // form — модалка оборачивается в <form>, кнопка type="submit" в футере отправляет её
   form: {
     type: Boolean,
     default: false,
   },
-})
+});
 
-defineEmits(['close', 'submit'])
+defineEmits(["close", "submit"]);
 </script>
 
 <template>
@@ -35,7 +33,12 @@ defineEmits(['close', 'submit'])
       >
         <div v-if="title" class="modal-header">
           <h2 class="modal-title">{{ title }}</h2>
-          <button class="modal-close" type="button" aria-label="Закрыть" @click="$emit('close')">
+          <button
+            class="modal-close"
+            type="button"
+            aria-label="Закрыть"
+            @click="$emit('close')"
+          >
             <AppIcon name="close" />
           </button>
         </div>

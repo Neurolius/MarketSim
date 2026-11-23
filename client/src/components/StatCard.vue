@@ -6,18 +6,17 @@ defineProps({
   },
   value: {
     type: [String, Number],
-    default: '',
+    default: "",
   },
   hint: {
     type: String,
-    default: '',
+    default: "",
   },
-  // цвет значения: 'up' | 'down' | 'warn' | 'muted'
   tone: {
     type: String,
-    default: '',
+    default: "",
   },
-})
+});
 </script>
 
 <template>

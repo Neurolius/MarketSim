@@ -11,7 +11,8 @@ import axios from "axios";
 import { mapInstrument } from "@/utils/InstrumentsMapper";
 import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal.vue";
 import { formatCompact } from "@/utils/format";
-import { toFormData, errorText } from "@/utils/api";
+import { toFormData, errorText } from "@/utils/requestFormatter";
+import { byId, inRange, matchesText } from "@/utils/lists";
 
 const profileStore = useProfileStore();
 
@@ -24,7 +25,7 @@ async function loadInstruments() {
     axios.get("/api/instrument/"),
     axios.get("/api/instrumenttype/"),
   ]);
-  const typesById = Object.fromEntries(types.data.map((t) => [t.id, t]));
+  const typesById = byId(types.data);
   instrumentsList.value = instruments.data.map((i) =>
     mapInstrument(i, typesById),
   );
@@ -45,15 +46,11 @@ const filters = ref(emptyFilters());
 
 const filteredInstrumentsList = computed(() => {
   const f = filters.value;
-  const search = f.search.trim().toLowerCase();
   return instrumentsList.value.filter(
     (i) =>
-      (!search ||
-        i.ticker.toLowerCase().includes(search) ||
-        i.name.toLowerCase().includes(search)) &&
+      (matchesText(i.ticker, f.search) || matchesText(i.name, f.search)) &&
       (!f.type || i.typeId === f.type) &&
-      (f.priceFrom === "" || i.rawPrice >= f.priceFrom) &&
-      (f.priceTo === "" || i.rawPrice <= f.priceTo) &&
+      inRange(i.rawPrice, f.priceFrom, f.priceTo) &&
       (!f.change || (f.change === "up" ? i.rawChange > 0 : i.rawChange < 0)) &&
       (!f.updatedDate || i.updatedDate === f.updatedDate),
   );
@@ -160,7 +157,9 @@ async function deleteInstrument() {
       <StatCard
         label="Средняя цена"
         :value="priceStats ? `${formatCompact(priceStats.avg)} ₽` : '-'"
-        :hint="priceStats ? `медиана ${formatCompact(priceStats.median)} ₽` : ''"
+        :hint="
+          priceStats ? `медиана ${formatCompact(priceStats.median)} ₽` : ''
+        "
       />
       <StatCard
         label="Мин / макс цена"

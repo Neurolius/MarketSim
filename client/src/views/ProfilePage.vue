@@ -6,6 +6,7 @@ import TwoFactorCard from "@/components/TwoFactorCard.vue";
 import useProfileStore from "@/stores/profileStore";
 import { computed, onBeforeMount, ref } from "vue";
 import axios from "axios";
+import { byId, sortByNewest, inRange, matchesText } from "@/utils/lists";
 import {
   formatPrice,
   formatQuantity,
@@ -13,16 +14,9 @@ import {
   formatCompact,
   toDateInputValue,
 } from "@/utils/format";
+import { orderTypeLabels, executionTypeLabels, statusLabels } from "@/utils/labels";
 
 const profileStore = useProfileStore();
-
-const orderTypeLabels = { buy: "Покупка", sell: "Продажа" };
-const executionTypeLabels = { market: "Рыночная", limit: "Лимитная" };
-const statusLabels = {
-  pending: "Ожидает",
-  executed: "Исполнена",
-  cancelled: "Отменена",
-};
 
 const me = ref(null);
 const tradeList = ref([]);
@@ -40,28 +34,23 @@ onBeforeMount(async () => {
 });
 
 const tradeRows = computed(() => {
-  const portfoliosById = Object.fromEntries(
-    portfolioList.value.map((p) => [p.id, p]),
-  );
-  return [...tradeList.value]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .map((t) => {
-      const unitPrice = t.execution_price ?? t.price;
-      const rawTotal =
-        unitPrice != null ? Number(t.quantity) * Number(unitPrice) : null;
-      return {
-        ...t,
-        portfolioName: portfoliosById[t.portfolio]?.name ?? "—",
-        createdText: formatDate(t.created_at),
-        executedText: formatDate(t.executed_at),
-        createdDate: toDateInputValue(t.created_at),
-        executedDate: toDateInputValue(t.executed_at),
-        quantityText: formatQuantity(t.quantity),
-        priceText: unitPrice != null ? `${formatPrice(unitPrice)} ₽` : "—",
-        rawTotal,
-        totalText: rawTotal != null ? `${formatPrice(rawTotal)} ₽` : "—",
-      };
-    });
+  const portfoliosById = byId(portfolioList.value);
+  return sortByNewest(tradeList.value).map((t) => {
+    const unitPrice = t.execution_price ?? t.price;
+    const rawTotal = unitPrice != null ? Number(t.quantity) * Number(unitPrice) : null;
+    return {
+      ...t,
+      portfolioName: portfoliosById[t.portfolio]?.name ?? "—",
+      createdText: formatDate(t.created_at),
+      executedText: formatDate(t.executed_at),
+      createdDate: toDateInputValue(t.created_at),
+      executedDate: toDateInputValue(t.executed_at),
+      quantityText: formatQuantity(t.quantity),
+      priceText: unitPrice != null ? `${formatPrice(unitPrice)} ₽` : "—",
+      rawTotal,
+      totalText: rawTotal != null ? `${formatPrice(rawTotal)} ₽` : "—",
+    };
+  });
 });
 
 const stats = computed(() => {
@@ -73,10 +62,7 @@ const stats = computed(() => {
   const turnover = (type) =>
     executed
       .filter((t) => t.order_type === type)
-      .reduce(
-        (sum, t) => sum + Number(t.quantity) * Number(t.execution_price),
-        0,
-      );
+      .reduce((sum, t) => sum + Number(t.quantity) * Number(t.execution_price), 0);
   const buys = turnover("buy");
   const sells = turnover("sell");
 
@@ -108,17 +94,15 @@ const filters = ref(emptyFilters());
 
 const filteredTrades = computed(() => {
   const f = filters.value;
-  const ticker = f.ticker.trim().toLowerCase();
   return tradeRows.value.filter(
     (t) =>
       (!f.created || t.createdDate === f.created) &&
       (!f.executed || t.executedDate === f.executed) &&
       (!f.portfolio || t.portfolio === f.portfolio) &&
-      (!ticker || t.instrument_info.ticker.toLowerCase().includes(ticker)) &&
+      matchesText(t.instrument_info.ticker, f.ticker) &&
       (!f.orderType || t.order_type === f.orderType) &&
       (!f.executionType || t.execution_type === f.executionType) &&
-      (f.totalFrom === "" || (t.rawTotal ?? 0) >= f.totalFrom) &&
-      (f.totalTo === "" || (t.rawTotal ?? 0) <= f.totalTo) &&
+      inRange(t.rawTotal ?? 0, f.totalFrom, f.totalTo) &&
       (!f.status || t.status === f.status),
   );
 });
@@ -134,9 +118,7 @@ function resetFilters() {
     <div class="page-header">
       <div>
         <h1 class="page-title">Профиль</h1>
-        <p class="page-subtitle">
-          Данные аккаунта, двухфакторная защита и полная история сделок
-        </p>
+        <p class="page-subtitle">Данные аккаунта, двухфакторная защита и полная история сделок</p>
       </div>
     </div>
 
@@ -147,9 +129,7 @@ function resetFilters() {
             profileStore.userName?.slice(0, 2).toUpperCase()
           }}</span>
           <h2 class="profile-name">{{ profileStore.userName }}</h2>
-          <span v-if="profileStore.isSuperuser" class="badge badge-admin"
-            >Суперпользователь</span
-          >
+          <span v-if="profileStore.isSuperuser" class="badge badge-admin">Суперпользователь</span>
           <div v-if="me" class="info-list">
             <div class="info-list-row">
               <span class="text-muted">Email</span>
@@ -157,9 +137,7 @@ function resetFilters() {
             </div>
             <div class="info-list-row">
               <span class="text-muted">Регистрация</span>
-              <span class="num">{{
-                new Date(me.date_joined).toLocaleDateString("ru-RU")
-              }}</span>
+              <span class="num">{{ new Date(me.date_joined).toLocaleDateString("ru-RU") }}</span>
             </div>
             <div class="info-list-row">
               <span class="text-muted">Последний вход</span>
@@ -177,23 +155,14 @@ function resetFilters() {
 
       <div class="stack">
         <section class="stats-grid" aria-label="Статистика сделок">
-          <StatCard
-            label="Всего сделок"
-            :value="stats.total"
-            hint="за всё время"
-          />
+          <StatCard label="Всего сделок" :value="stats.total" hint="за всё время" />
           <StatCard
             label="Исполнено"
             :value="stats.executed"
             :hint="`${stats.executedShare}%`"
             tone="up"
           />
-          <StatCard
-            label="Ожидают"
-            :value="stats.pending"
-            hint="лимитные заявки"
-            tone="warn"
-          />
+          <StatCard label="Ожидают" :value="stats.pending" hint="лимитные заявки" tone="warn" />
           <StatCard
             label="Отменено"
             :value="stats.cancelled"
@@ -214,11 +183,7 @@ function resetFilters() {
               <span class="table-count">{{ filteredTrades.length }}</span>
             </h2>
             <div class="export-actions">
-              <button
-                class="btn btn-ghost btn-sm"
-                type="button"
-                @click="resetFilters"
-              >
+              <button class="btn btn-ghost btn-sm" type="button" @click="resetFilters">
                 Сбросить фильтры
               </button>
               <ExportButtons />
@@ -265,17 +230,9 @@ function resetFilters() {
                     </select>
                   </th>
                   <th>
-                    <select
-                      v-model="filters.portfolio"
-                      class="filter-select"
-                      aria-label="Портфель"
-                    >
+                    <select v-model="filters.portfolio" class="filter-select" aria-label="Портфель">
                       <option value="">Все</option>
-                      <option
-                        v-for="p in portfolioList"
-                        :key="p.id"
-                        :value="p.id"
-                      >
+                      <option v-for="p in portfolioList" :key="p.id" :value="p.id">
                         {{ p.name }}
                       </option>
                     </select>
@@ -290,11 +247,7 @@ function resetFilters() {
                     />
                   </th>
                   <th>
-                    <select
-                      class="filter-select"
-                      aria-label="Операция"
-                      v-model="filters.orderType"
-                    >
+                    <select class="filter-select" aria-label="Операция" v-model="filters.orderType">
                       <option value="">Все</option>
                       <option value="buy">Покупка</option>
                       <option value="sell">Продажа</option>
@@ -332,11 +285,7 @@ function resetFilters() {
                     </div>
                   </th>
                   <th>
-                    <select
-                      class="filter-select"
-                      aria-label="Статус"
-                      v-model="filters.status"
-                    >
+                    <select class="filter-select" aria-label="Статус" v-model="filters.status">
                       <option value="">Все</option>
                       <option value="pending">Ожидает</option>
                       <option value="executed">Исполнена</option>
@@ -392,10 +341,7 @@ function resetFilters() {
                   </td>
                 </tr>
                 <tr v-if="!filteredTrades.length">
-                  <td
-                    :colspan="profileStore.isSuperuser ? 11 : 10"
-                    class="text-muted"
-                  >
+                  <td :colspan="profileStore.isSuperuser ? 11 : 10" class="text-muted">
                     Сделок нет
                   </td>
                 </tr>
@@ -403,10 +349,7 @@ function resetFilters() {
             </table>
           </div>
           <div class="table-footer">
-            <span
-              >Показано {{ filteredTrades.length }} из
-              {{ tradeList.length }}</span
-            >
+            <span>Показано {{ filteredTrades.length }} из {{ tradeList.length }}</span>
           </div>
         </section>
       </div>

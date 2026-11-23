@@ -1,10 +1,10 @@
 <script setup>
-import AppIcon from '@/components/AppIcon.vue'
+import AppIcon from "@/components/AppIcon.vue";
 
 defineProps({
   icon: {
     type: String,
-    default: 'search',
+    default: "search",
   },
   title: {
     type: String,
@@ -12,14 +12,13 @@ defineProps({
   },
   text: {
     type: String,
-    default: '',
+    default: "",
   },
-  // красная иконка — для страниц ошибок (403, 404)
   danger: {
     type: Boolean,
     default: false,
   },
-})
+});
 </script>
 
 <template>

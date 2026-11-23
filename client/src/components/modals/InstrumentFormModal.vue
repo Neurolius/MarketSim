@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, ref } from "vue";
 import AppIcon from "@/components/AppIcon.vue";
 import BaseModal from "@/components/BaseModal.vue";
 import ImageUpload from "@/components/ImageUpload.vue";
+import { useImagePreview } from "@/composables/useImagePreview";
 
 const props = defineProps({
   instrument: { type: Object, default: null },
@@ -18,22 +19,12 @@ const typeId = ref(
   props.instrument?.typeId ?? props.instrumentTypes[0]?.id ?? null,
 );
 const price = ref(props.instrument?.rawPrice ?? null);
-const logoFile = ref(null);
-const logoPreview = ref(props.instrument?.logo ?? "");
 
-function onLogoChange(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  logoFile.value = file;
-  if (logoPreview.value.startsWith("blob:"))
-    URL.revokeObjectURL(logoPreview.value);
-  logoPreview.value = URL.createObjectURL(file);
-}
-
-onBeforeUnmount(() => {
-  if (logoPreview.value.startsWith("blob:"))
-    URL.revokeObjectURL(logoPreview.value);
-});
+const {
+  file: logoFile,
+  preview: logoPreview,
+  onFileChange: onLogoChange,
+} = useImagePreview(props.instrument?.logo);
 
 const canSubmit = computed(
   () =>

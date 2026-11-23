@@ -19,7 +19,9 @@ import {
   formatCompact,
   formatCompactSigned,
 } from "@/utils/format";
-import { toFormData, errorText } from "@/utils/api";
+import { toFormData, errorText } from "@/utils/requestFormatter";
+import { inRange, matchesText } from "@/utils/lists";
+import { calcPosition } from "@/utils/positions";
 
 const profileStore = useProfileStore();
 
@@ -48,9 +50,9 @@ const portfolioRows = computed(() => {
     if (!stats[pos.portfolio])
       stats[pos.portfolio] = { positionsValue: 0, cost: 0, count: 0 };
     const s = stats[pos.portfolio];
-    const qty = Number(pos.quantity);
-    s.positionsValue += qty * Number(pos.instrument_info.current_price);
-    s.cost += qty * Number(pos.average_price);
+    const c = calcPosition(pos);
+    s.positionsValue += c.value;
+    s.cost += c.cost;
     s.count += 1;
   }
 
@@ -101,15 +103,11 @@ const emptyFilters = () => ({
 });
 const filters = ref(emptyFilters());
 
-const inRange = (v, from, to) =>
-  (from === "" || v >= from) && (to === "" || v <= to);
-
 const filteredPortfolios = computed(() => {
   const f = filters.value;
-  const name = f.name.trim().toLowerCase();
   return portfolioRows.value.filter(
     (p) =>
-      (!name || p.name.toLowerCase().includes(name)) &&
+      matchesText(p.name, f.name) &&
       inRange(p.rawBalance, f.balanceFrom, f.balanceTo) &&
       inRange(p.rawValue, f.valueFrom, f.valueTo),
   );

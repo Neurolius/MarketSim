@@ -9,6 +9,8 @@ import axios from "axios";
 import { computed, onBeforeMount, ref, watch } from "vue";
 import { mapInstrument } from "@/utils/InstrumentsMapper.js";
 import { formatPrice } from "@/utils/format.js";
+import { byId, sortByNewest } from "@/utils/lists";
+import { calcPosition } from "@/utils/positions";
 
 const portfoliosList = ref([]);
 const tradeList = ref([]);
@@ -18,15 +20,9 @@ const portfoliosBalance = computed(() =>
   portfoliosList.value.reduce((total, p) => total + Number(p.balance), 0),
 );
 
-const portfoliosById = computed(() =>
-  Object.fromEntries(portfoliosList.value.map((p) => [p.id, p])),
-);
+const portfoliosById = computed(() => byId(portfoliosList.value));
 
-const lastTrades = computed(() =>
-  [...tradeList.value]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 10),
-);
+const lastTrades = computed(() => sortByNewest(tradeList.value).slice(0, 10));
 
 const portfolioStats = computed(() => {
   const stats = Object.fromEntries(
@@ -39,7 +35,7 @@ const portfolioStats = computed(() => {
     const s = stats[pos.portfolio];
     if (!s) continue;
     s.positionsCount += 1;
-    s.value += Number(pos.instrument_info.current_price) * Number(pos.quantity);
+    s.value += calcPosition(pos).value;
   }
   return stats;
 });

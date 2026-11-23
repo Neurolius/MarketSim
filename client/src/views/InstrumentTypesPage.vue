@@ -1,23 +1,22 @@
 <script setup>
-import { ref } from 'vue'
-import HeaderNavbar from '@/components/HeaderNavbar.vue'
-import AppIcon from '@/components/AppIcon.vue'
-import StatCard from '@/components/StatCard.vue'
-import ExportButtons from '@/components/ExportButtons.vue'
-import InstrumentTypeFormModal from '@/components/modals/InstrumentTypeFormModal.vue'
-import ConfirmDeleteModal from '@/components/modals/ConfirmDeleteModal.vue'
+import { ref } from "vue";
+import HeaderNavbar from "@/components/HeaderNavbar.vue";
+import AppIcon from "@/components/AppIcon.vue";
+import StatCard from "@/components/StatCard.vue";
+import ExportButtons from "@/components/ExportButtons.vue";
+import InstrumentTypeFormModal from "@/components/modals/InstrumentTypeFormModal.vue";
+import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal.vue";
 
-// открытые модалки: форма (null — закрыта, {} — новый тип) и удаление
-const formType = ref(null)
-const deleteType = ref(null)
-const errorMessage = ref('')
+const formType = ref(null);
+const deleteType = ref(null);
+const errorMessage = ref("");
 
 // моковые данные для верстки — заменить на данные из API
 const instrumentTypes = [
-  { id: 1, name: 'Акция', instrumentsCount: 26 },
-  { id: 2, name: 'Криптовалюта', instrumentsCount: 14 },
-  { id: 3, name: 'Валюта', instrumentsCount: 8 },
-]
+  { id: 1, name: "Акция", instrumentsCount: 26 },
+  { id: 2, name: "Криптовалюта", instrumentsCount: 14 },
+  { id: 3, name: "Валюта", instrumentsCount: 8 },
+];
 </script>
 
 <template>
@@ -45,7 +44,6 @@ const instrumentTypes = [
       <StatCard label="Самый крупный" value="Акция" hint="26 инструментов" />
     </section>
 
-    <!-- пример: «Не удалось удалить «Валюта». К этому типу привязано 8 инструментов — сначала измените их тип.» -->
     <div v-if="errorMessage" class="alert alert-error" role="alert">
       <AppIcon name="alert" />
       <span>{{ errorMessage }}</span>
@@ -54,7 +52,8 @@ const instrumentTypes = [
     <section class="card">
       <div class="table-toolbar">
         <h2 class="table-toolbar-title">
-          Справочник <span class="table-count">{{ instrumentTypes.length }}</span>
+          Справочник
+          <span class="table-count">{{ instrumentTypes.length }}</span>
         </h2>
         <div class="export-actions">
           <ExportButtons />
@@ -70,14 +69,36 @@ const instrumentTypes = [
               <th class="col-actions">Действия</th>
             </tr>
             <tr class="filter-row">
-              <th><input class="filter-input" type="number" placeholder="ID" aria-label="ID" /></th>
               <th>
-                <input class="filter-input" type="search" placeholder="Название" aria-label="Название" />
+                <input
+                  class="filter-input"
+                  type="number"
+                  placeholder="ID"
+                  aria-label="ID"
+                />
+              </th>
+              <th>
+                <input
+                  class="filter-input"
+                  type="search"
+                  placeholder="Название"
+                  aria-label="Название"
+                />
               </th>
               <th>
                 <div class="filter-range">
-                  <input class="filter-input" type="number" placeholder="от" aria-label="Инструментов от" />
-                  <input class="filter-input" type="number" placeholder="до" aria-label="Инструментов до" />
+                  <input
+                    class="filter-input"
+                    type="number"
+                    placeholder="от"
+                    aria-label="Инструментов от"
+                  />
+                  <input
+                    class="filter-input"
+                    type="number"
+                    placeholder="до"
+                    aria-label="Инструментов до"
+                  />
                 </div>
               </th>
               <th></th>
@@ -86,14 +107,24 @@ const instrumentTypes = [
           <tbody>
             <tr v-for="type in instrumentTypes" :key="type.id">
               <td class="num text-muted">{{ type.id }}</td>
-              <td><strong>{{ type.name }}</strong></td>
+              <td>
+                <strong>{{ type.name }}</strong>
+              </td>
               <td class="col-num num">{{ type.instrumentsCount }}</td>
               <td class="col-actions">
-                <button class="btn btn-ghost btn-sm" type="button" @click="formType = type">
+                <button
+                  class="btn btn-ghost btn-sm"
+                  type="button"
+                  @click="formType = type"
+                >
                   <AppIcon name="edit" />
                   Изменить
                 </button>
-                <button class="btn btn-danger btn-sm" type="button" @click="deleteType = type">
+                <button
+                  class="btn btn-danger btn-sm"
+                  type="button"
+                  @click="deleteType = type"
+                >
                   <AppIcon name="trash" />
                   Удалить
                 </button>

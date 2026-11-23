@@ -1,9 +1,8 @@
 <script setup>
-// type: 'stock' | 'crypto' | 'currency' — задаёт цвет заглушки, когда нет логотипа
 defineProps({
   ticker: {
     type: String,
-    default: '',
+    default: "",
   },
   logo: {
     type: String,
@@ -11,33 +10,37 @@ defineProps({
   },
   type: {
     type: String,
-    default: 'stock',
+    default: "stock",
   },
   large: {
     type: Boolean,
     default: false,
   },
-  // false — логотип внутри ссылки, без открытия в полном размере
   zoomable: {
     type: Boolean,
     default: true,
   },
-})
+});
 
-defineEmits(['open'])
+defineEmits(["open"]);
 </script>
 
 <template>
   <component
     :is="zoomable ? 'button' : 'span'"
     class="instrument-logo"
-    :class="[`is-${type}`, { 'instrument-logo-lg': large, 'is-zoomable': zoomable }]"
+    :class="[
+      `is-${type}`,
+      { 'instrument-logo-lg': large, 'is-zoomable': zoomable },
+    ]"
     :type="zoomable ? 'button' : undefined"
     :aria-label="zoomable ? `Открыть логотип ${ticker}` : undefined"
     @click="zoomable && $emit('open')"
   >
     <img v-if="logo" :src="logo" :alt="ticker" />
-    <template v-else>{{ ticker.length > 3 ? ticker.slice(0, 2) : ticker }}</template>
+    <template v-else>{{
+      ticker.length > 3 ? ticker.slice(0, 2) : ticker
+    }}</template>
   </component>
 </template>
 

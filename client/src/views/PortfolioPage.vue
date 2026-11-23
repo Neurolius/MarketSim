@@ -21,21 +21,16 @@ import {
   formatCompactSigned,
   toDateInputValue,
 } from "@/utils/format";
-import { toFormData, errorText } from "@/utils/api";
+import { toFormData, errorText } from "@/utils/requestFormatter";
+import { byId, sortByNewest, inRange, matchesText } from "@/utils/lists";
+import { calcPosition } from "@/utils/positions";
+import { orderTypeLabels, executionTypeLabels, statusLabels } from "@/utils/labels";
 
 const isEditOpen = ref(false);
 const isDeleteOpen = ref(false);
 const imageModal = ref(null);
 const sellPosition = ref(null);
 const editTrade = ref(null);
-
-const orderTypeLabels = { buy: "Покупка", sell: "Продажа" };
-const executionTypeLabels = { market: "Рыночная", limit: "Лимитная" };
-const statusLabels = {
-  pending: "Ожидает",
-  executed: "Исполнена",
-  cancelled: "Отменена",
-};
 
 const route = useRoute();
 const router = useRouter();
@@ -65,31 +60,25 @@ onBeforeMount(async () => {
 });
 
 const positionRows = computed(() => {
-  const typesById = Object.fromEntries(typesList.value.map((t) => [t.id, t]));
+  const typesById = byId(typesList.value);
   return positionList.value
     .map((pos) => {
-      const qty = Number(pos.quantity);
-      const average = Number(pos.average_price);
-      const current = Number(pos.instrument_info.current_price);
-      const value = qty * current;
-      const cost = qty * average;
-      const profit = value - cost;
-      const percent = cost ? (profit / cost) * 100 : 0;
+      const c = calcPosition(pos);
       const typeId = pos.instrument_info.instrument_type;
       return {
         ...pos,
         typeId,
         typeName: typesById[typeId]?.name ?? "—",
-        rawValue: value,
-        rawCost: cost,
-        rawProfit: profit,
-        quantityText: formatQuantity(qty),
-        averageText: formatPrice(average),
-        currentText: formatPrice(current),
-        valueText: formatPrice(value),
-        profitText: `${formatSigned(profit)} ₽`,
-        percentText: `${formatSigned(percent)}%`,
-        isUp: profit >= 0,
+        rawValue: c.value,
+        rawCost: c.cost,
+        rawProfit: c.profit,
+        quantityText: formatQuantity(c.quantity),
+        averageText: formatPrice(c.average),
+        currentText: formatPrice(c.current),
+        valueText: formatPrice(c.value),
+        profitText: `${formatSigned(c.profit)} ₽`,
+        percentText: `${formatSigned(c.percent)}%`,
+        isUp: c.profit >= 0,
       };
     })
     .sort((a, b) => b.rawProfit - a.rawProfit);
@@ -111,9 +100,6 @@ const totals = computed(() => {
   };
 });
 
-const inRange = (v, from, to) =>
-  (from === "" || v >= from) && (to === "" || v <= to);
-
 const emptyPositionFilters = () => ({
   ticker: "",
   type: "",
@@ -127,15 +113,13 @@ const positionFilters = ref(emptyPositionFilters());
 
 const filteredPositions = computed(() => {
   const f = positionFilters.value;
-  const ticker = f.ticker.trim().toLowerCase();
   return positionRows.value.filter(
     (p) =>
-      (!ticker || p.instrument_info.ticker.toLowerCase().includes(ticker)) &&
+      matchesText(p.instrument_info.ticker, f.ticker) &&
       (!f.type || p.typeId === f.type) &&
       inRange(Number(p.quantity), f.qtyFrom, f.qtyTo) &&
       inRange(p.rawValue, f.valueFrom, f.valueTo) &&
-      (!f.result ||
-        (f.result === "profit" ? p.rawProfit > 0 : p.rawProfit < 0)),
+      (!f.result || (f.result === "profit" ? p.rawProfit > 0 : p.rawProfit < 0)),
   );
 });
 
@@ -150,17 +134,14 @@ const tradeFilters = ref(emptyTradeFilters());
 
 const filteredTrades = computed(() => {
   const f = tradeFilters.value;
-  const ticker = f.ticker.trim().toLowerCase();
-  return [...tradeList.value]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .filter(
-      (t) =>
-        (!f.date || toDateInputValue(t.created_at) === f.date) &&
-        (!ticker || t.instrument_info.ticker.toLowerCase().includes(ticker)) &&
-        (!f.orderType || t.order_type === f.orderType) &&
-        (!f.executionType || t.execution_type === f.executionType) &&
-        (!f.status || t.status === f.status),
-    );
+  return sortByNewest(tradeList.value).filter(
+    (t) =>
+      (!f.date || toDateInputValue(t.created_at) === f.date) &&
+      matchesText(t.instrument_info.ticker, f.ticker) &&
+      (!f.orderType || t.order_type === f.orderType) &&
+      (!f.executionType || t.execution_type === f.executionType) &&
+      (!f.status || t.status === f.status),
+  );
 });
 
 const formError = ref("");
@@ -175,10 +156,7 @@ async function savePortfolio(data) {
   formError.value = "";
   isSaving.value = true;
   try {
-    await axios.patch(
-      `/api/portfolio/${portfolio.value.id}/`,
-      toFormData(data),
-    );
+    await axios.patch(`/api/portfolio/${portfolio.value.id}/`, toFormData(data));
     isEditOpen.value = false;
     await loadPortfolio();
   } catch (e) {
@@ -295,11 +273,7 @@ async function cancelTrade() {
             <AppIcon name="edit" />
             Изменить
           </button>
-          <button
-            class="btn btn-danger"
-            type="button"
-            @click="isDeleteOpen = true"
-          >
+          <button class="btn btn-danger" type="button" @click="isDeleteOpen = true">
             <AppIcon name="trash" />
             Удалить
           </button>
@@ -372,17 +346,9 @@ async function cancelTrade() {
                 />
               </th>
               <th>
-                <select
-                  v-model="positionFilters.type"
-                  class="filter-select"
-                  aria-label="Тип"
-                >
+                <select v-model="positionFilters.type" class="filter-select" aria-label="Тип">
                   <option value="">Все</option>
-                  <option
-                    v-for="type in typesList"
-                    :key="type.id"
-                    :value="type.id"
-                  >
+                  <option v-for="type in typesList" :key="type.id" :value="type.id">
                     {{ type.name }}
                   </option>
                 </select>
@@ -458,9 +424,7 @@ async function cancelTrade() {
                     >
                       {{ position.instrument_info.ticker }}
                     </router-link>
-                    <span class="cell-instrument-name">{{
-                      position.instrument_info.name
-                    }}</span>
+                    <span class="cell-instrument-name">{{ position.instrument_info.name }}</span>
                   </span>
                 </div>
               </td>
@@ -472,25 +436,15 @@ async function cancelTrade() {
               <td class="col-num num">{{ position.currentText }} ₽</td>
               <td class="col-num num">{{ position.valueText }} ₽</td>
               <td class="col-num">
-                <div
-                  class="price-change"
-                  :class="position.isUp ? 'is-up' : 'is-down'"
-                >
+                <div class="price-change" :class="position.isUp ? 'is-up' : 'is-down'">
                   {{ position.profitText }}
                 </div>
-                <div
-                  class="price-change text-xs"
-                  :class="position.isUp ? 'is-up' : 'is-down'"
-                >
+                <div class="price-change text-xs" :class="position.isUp ? 'is-up' : 'is-down'">
                   {{ position.percentText }}
                 </div>
               </td>
               <td class="col-actions">
-                <button
-                  class="btn btn-sell btn-sm"
-                  type="button"
-                  @click="openSell(position)"
-                >
+                <button class="btn btn-sell btn-sm" type="button" @click="openSell(position)">
                   Продать
                 </button>
               </td>
@@ -504,15 +458,11 @@ async function cancelTrade() {
       <div class="table-footer">
         <span
           >Итого в позициях:
-          <strong class="num"
-            >{{ formatPrice(totals.positionsValue) }} ₽</strong
-          ></span
+          <strong class="num">{{ formatPrice(totals.positionsValue) }} ₽</strong></span
         >
         <span
           >Общий П/У:
-          <span
-            class="price-change"
-            :class="totals.profit >= 0 ? 'is-up' : 'is-down'"
+          <span class="price-change" :class="totals.profit >= 0 ? 'is-up' : 'is-down'"
             >{{ formatSigned(totals.profit) }} ₽</span
           >
         </span>
@@ -588,11 +538,7 @@ async function cancelTrade() {
               <th></th>
               <th></th>
               <th>
-                <select
-                  class="filter-select"
-                  aria-label="Статус"
-                  v-model="tradeFilters.status"
-                >
+                <select class="filter-select" aria-label="Статус" v-model="tradeFilters.status">
                   <option value="">Все</option>
                   <option value="pending">Ожидает</option>
                   <option value="executed">Исполнена</option>
@@ -609,9 +555,7 @@ async function cancelTrade() {
                 {{ new Date(trade.created_at).toLocaleString() }}
               </td>
               <td>
-                <router-link
-                  :to="{ name: 'instrument', params: { id: trade.instrument } }"
-                >
+                <router-link :to="{ name: 'instrument', params: { id: trade.instrument } }">
                   <strong>{{ trade.instrument_info.ticker }}</strong>
                 </router-link>
               </td>
@@ -629,15 +573,8 @@ async function cancelTrade() {
               <td class="col-num num" :class="{ 'text-muted': !trade.price }">
                 {{ trade.price ? `${formatPrice(trade.price)} ₽` : "—" }}
               </td>
-              <td
-                class="col-num num"
-                :class="{ 'text-muted': !trade.execution_price }"
-              >
-                {{
-                  trade.execution_price
-                    ? `${formatPrice(trade.execution_price)} ₽`
-                    : "—"
-                }}
+              <td class="col-num num" :class="{ 'text-muted': !trade.execution_price }">
+                {{ trade.execution_price ? `${formatPrice(trade.execution_price)} ₽` : "—" }}
               </td>
               <td>
                 <span class="badge" :class="`badge-${trade.status}`">
@@ -665,11 +602,7 @@ async function cancelTrade() {
               </td>
               <td class="col-actions">
                 <template v-if="trade.status === 'pending'">
-                  <button
-                    class="btn btn-ghost btn-sm"
-                    type="button"
-                    @click="openTradeEdit(trade)"
-                  >
+                  <button class="btn btn-ghost btn-sm" type="button" @click="openTradeEdit(trade)">
                     Изменить
                   </button>
                   <button
@@ -689,9 +622,7 @@ async function cancelTrade() {
         </table>
       </div>
       <div class="table-footer">
-        <span
-          >Показано {{ filteredTrades.length }} из {{ tradeList.length }}</span
-        >
+        <span>Показано {{ filteredTrades.length }} из {{ tradeList.length }}</span>
       </div>
     </section>
   </main>
@@ -753,11 +684,7 @@ async function cancelTrade() {
   height: 160px;
   padding: 0;
   border: 0;
-  background: repeating-linear-gradient(
-    135deg,
-    #e3e8f0 0 12px,
-    #d9dfe9 12px 24px
-  );
+  background: repeating-linear-gradient(135deg, #e3e8f0 0 12px, #d9dfe9 12px 24px);
   cursor: zoom-in;
 }
 

@@ -18,8 +18,9 @@ import {
   formatDate,
   toDateInputValue,
 } from "@/utils/format";
-import { buildChart } from "@/utils/chart";
-import { toFormData, errorText } from "@/utils/api";
+import { toFormData, errorText } from "@/utils/requestFormatter";
+import { byId } from "@/utils/lists";
+import { calcPosition } from "@/utils/positions";
 
 const isLogoModalOpen = ref(false);
 const sellPosition = ref(null);
@@ -41,7 +42,7 @@ onBeforeMount(async () => {
     axios.get("/api/pricehistory/", { params: { instrument: id } }),
     axios.get("/api/position/", { params: { instrument: id } }),
   ]);
-  const typesById = Object.fromEntries(type.data.map((t) => [t.id, t]));
+  const typesById = byId(type.data);
   instrumentTrade.value = mapInstrument(instrument.data, typesById);
   portfolioList.value = portfolios.data;
   priceHistoryList.value = history.data;
@@ -49,22 +50,16 @@ onBeforeMount(async () => {
 });
 
 const positionRows = computed(() => {
-  const portfoliosById = Object.fromEntries(
-    portfolioList.value.map((p) => [p.id, p]),
-  );
-  const currentPrice = instrumentTrade.value?.rawPrice ?? 0;
+  const portfoliosById = byId(portfolioList.value);
   return positionList.value.map((p) => {
-    const quantity = Number(p.quantity);
-    const avarage = Number(p.average_price);
-    const profit = quantity * (currentPrice - avarage);
-    const percent = avarage ? (currentPrice / avarage - 1) * 100 : 0;
+    const c = calcPosition(p);
     return {
       ...p,
       portfolioName: portfoliosById[p.portfolio]?.name ?? "—",
-      quantityText: formatQuantity(quantity),
-      averageText: formatPrice(avarage),
-      profitText: `${formatSigned(profit)} ₽ (${formatSigned(percent)}%)`,
-      isUp: profit >= 0,
+      quantityText: formatQuantity(c.quantity),
+      averageText: formatPrice(c.average),
+      profitText: `${formatSigned(c.profit)} ₽ (${formatSigned(c.percent)}%)`,
+      isUp: c.profit >= 0,
     };
   });
 });
@@ -114,28 +109,27 @@ const historyStats = computed(() => {
   };
 });
 
-const chartPeriods = [
-  { label: "1Д", days: 1 },
-  { label: "1Н", days: 7 },
-  { label: "1М", days: 30 },
-  { label: "3М", days: 90 },
-  { label: "1Г", days: 365 },
-  { label: "Всё", days: null },
-];
-const chartPeriod = ref(chartPeriods[2]);
+const chartRecords = computed(() => [...priceHistoryList.value].reverse());
 
-const chart = computed(() => {
-  const days = chartPeriod.value.days;
-  const since = days ? Date.now() - days * 24 * 60 * 60 * 1000 : 0;
-  const records = priceHistoryList.value
-    .filter((r) => new Date(r.timestamp).getTime() >= since)
-    .reverse();
-  return buildChart(records, 900, 340);
-});
-
-const chartChange = computed(() =>
-  chart.value ? (chart.value.last / chart.value.first - 1) * 100 : 0,
+const chartLabels = computed(() =>
+  chartRecords.value.map((r) => formatDate(r.timestamp)),
 );
+const chartPrices = computed(() =>
+  chartRecords.value.map((r) => Number(r.price)),
+);
+
+const chartStats = computed(() => {
+  const prices = chartPrices.value;
+  if (prices.length < 2) return null;
+  const first = prices[0];
+  const last = prices.at(-1);
+  return {
+    first,
+    min: Math.min(...prices),
+    max: Math.max(...prices),
+    change: (last / first - 1) * 100,
+  };
+});
 
 const buyForm = ref(null);
 const buyError = ref("");
@@ -239,50 +233,41 @@ async function onSell(data) {
       <section class="card">
         <div class="card-header">
           <h2 class="card-title">График цены</h2>
-          <div class="segmented" role="group" aria-label="Таймфрейм">
-            <button
-              v-for="period in chartPeriods"
-              :key="period.label"
-              class="segmented-btn"
-              :class="{ 'is-active': chartPeriod === period }"
-              type="button"
-              @click="chartPeriod = period"
-            >
-              {{ period.label }}
-            </button>
-          </div>
         </div>
         <div class="card-body">
           <PriceChart
-            :points="chart?.points ?? ''"
-            :width="900"
-            :height="340"
-            :y-labels="chart?.yLabels ?? []"
-            :x-labels="chart?.xLabels ?? []"
-            :is-up="chartChange >= 0"
+            :labels="chartLabels"
+            :prices="chartPrices"
+            :is-up="(chartStats?.change ?? 0) >= 0"
             large
           />
         </div>
-        <div v-if="chart" class="chart-meta">
+        <div v-if="chartStats" class="chart-meta">
           <div>
-            <div class="meta-label">Открытие периода</div>
-            <div class="num text-strong">{{ formatPrice(chart?.first) }} ₽</div>
+            <div class="meta-label">Начальная цена</div>
+            <div class="num text-strong">
+              {{ formatPrice(chartStats.first) }} ₽
+            </div>
           </div>
           <div>
             <div class="meta-label">Минимум</div>
-            <div class="num text-strong">{{ formatPrice(chart?.min) }} ₽</div>
+            <div class="num text-strong">
+              {{ formatPrice(chartStats.min) }} ₽
+            </div>
           </div>
           <div>
             <div class="meta-label">Максимум</div>
-            <div class="num text-strong">{{ formatPrice(chart?.max) }} ₽</div>
+            <div class="num text-strong">
+              {{ formatPrice(chartStats.max) }} ₽
+            </div>
           </div>
           <div>
-            <div class="meta-label">Изменение за период</div>
+            <div class="meta-label">Изменения за все время</div>
             <div
               class="price-change"
-              :class="chartChange >= 0 ? 'is-up' : 'is-down'"
+              :class="chartStats.change >= 0 ? 'is-up' : 'is-down'"
             >
-              {{ formatSigned(chartChange) }}%
+              {{ formatSigned(chartStats.change) }}%
             </div>
           </div>
         </div>

@@ -1,89 +1,84 @@
 <script setup>
 import { computed } from "vue";
+import { Line } from "vue-chartjs";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+} from "chart.js";
+import { formatPrice } from "@/utils/format";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+);
 
 const props = defineProps({
-  points: {
-    type: String,
-    default: "",
-  },
-  width: {
-    type: Number,
-    default: 600,
-  },
-  height: {
-    type: Number,
-    default: 216,
-  },
-  yLabels: {
-    type: Array,
-    default: () => [],
-  },
-  xLabels: {
-    type: Array,
-    default: () => [],
-  },
-  isUp: {
-    type: Boolean,
-    default: true,
-  },
-  large: {
-    type: Boolean,
-    default: false,
-  },
+  labels: { type: Array, default: () => [] },
+  prices: { type: Array, default: () => [] },
+  isUp: { type: Boolean, default: true },
+  large: { type: Boolean, default: false },
 });
 
-const top = 20;
-const baseline = computed(() => props.height - 22);
+const lineColor = computed(() => (props.isUp ? "#067a45" : "#c41f28"));
+const fillColor = computed(() =>
+  props.isUp ? "rgba(6, 122, 69, 0.08)" : "rgba(196, 31, 40, 0.08)",
+);
 
-const gridLines = computed(() => {
-  const count = Math.max(props.yLabels.length, 2);
-  const step = (baseline.value - top) / (count - 1);
-  return Array.from({ length: count }, (_, i) => top + i * step);
-});
+const chartData = computed(() => ({
+  labels: props.labels,
+  datasets: [
+    {
+      data: props.prices,
+      borderColor: lineColor.value,
+      backgroundColor: fillColor.value,
+      fill: true,
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      tension: 0.2,
+    },
+  ],
+}));
 
-const areaPath = computed(() => {
-  if (!props.points) return "";
-  const line = props.points.trim().split(/\s+/).join(" L");
-  return `M${line} L${props.width},${baseline.value} L0,${baseline.value} Z`;
-});
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: "index", intersect: false },
+  plugins: {
+    tooltip: {
+      callbacks: {
+        label: (ctx) => `${formatPrice(ctx.parsed.y)} ₽`,
+      },
+    },
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+      ticks: { maxTicksLimit: 6 },
+    },
+    y: {
+      position: "right",
+      ticks: { callback: (value) => formatPrice(value) },
+    },
+  },
+};
 </script>
 
 <template>
   <div class="chart-box" :class="{ 'chart-box-lg': large }">
-    <div v-if="!points" class="chart-placeholder">
+    <div v-if="prices.length < 2" class="chart-placeholder">
       Нет данных за выбранный период
     </div>
-    <template v-else>
-      <svg
-        class="chart-svg"
-        :viewBox="`0 0 ${width} ${height}`"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <g class="chart-grid">
-          <line
-            v-for="y in gridLines"
-            :key="y"
-            x1="0"
-            :y1="y"
-            :x2="width"
-            :y2="y"
-          />
-        </g>
-        <path class="chart-area" :class="{ 'is-down': !isUp }" :d="areaPath" />
-        <polyline
-          class="chart-line"
-          :class="{ 'is-down': !isUp }"
-          :points="points"
-        />
-      </svg>
-      <div v-if="yLabels.length" class="chart-y-labels">
-        <span v-for="(label, index) in yLabels" :key="index">{{ label }}</span>
-      </div>
-      <div v-if="xLabels.length" class="chart-x-labels">
-        <span v-for="(label, index) in xLabels" :key="index">{{ label }}</span>
-      </div>
-    </template>
+    <Line v-else :data="chartData" :options="chartOptions" />
   </div>
 </template>
 
@@ -91,73 +86,10 @@ const areaPath = computed(() => {
 .chart-box {
   position: relative;
   height: 240px;
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
 }
 
 .chart-box-lg {
   height: 340px;
-}
-
-.chart-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  overflow: visible;
-}
-
-.chart-line {
-  fill: none;
-  stroke: var(--color-up);
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-
-.chart-line.is-down {
-  stroke: var(--color-down);
-}
-
-.chart-area {
-  fill: var(--color-up);
-  opacity: 0.08;
-}
-
-.chart-area.is-down {
-  fill: var(--color-down);
-}
-
-.chart-grid line {
-  stroke: var(--color-border);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-.chart-y-labels {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding-left: var(--space-2);
-  background: linear-gradient(90deg, transparent, var(--color-surface) 30%);
-  font-size: 11px;
-  color: var(--color-text-muted);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.chart-x-labels {
-  position: absolute;
-  left: 0;
-  right: 64px;
-  bottom: 0;
-  height: 20px;
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--color-text-muted);
 }
 
 .chart-placeholder {

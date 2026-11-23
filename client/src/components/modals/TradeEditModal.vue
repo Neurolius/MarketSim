@@ -1,9 +1,11 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, ref } from "vue";
 import AppIcon from "@/components/AppIcon.vue";
 import BaseModal from "@/components/BaseModal.vue";
 import ImageUpload from "@/components/ImageUpload.vue";
 import { formatPrice } from "@/utils/format";
+import { orderTypeLabels, executionTypeLabels } from "@/utils/labels";
+import { useImagePreview } from "@/composables/useImagePreview";
 
 const props = defineProps({
   trade: { type: Object, required: true },
@@ -12,27 +14,14 @@ const props = defineProps({
 });
 const emit = defineEmits(["close", "submit", "cancel-trade"]);
 
-const orderTypeLabels = { buy: "Покупка", sell: "Продажа" };
-const executionTypeLabels = { market: "Рыночная", limit: "Лимитная" };
-
 const quantity = ref(Number(props.trade.quantity));
 const limitPrice = ref(props.trade.price ? Number(props.trade.price) : null);
-const imageFile = ref(null);
-const imagePreview = ref(props.trade.image ?? "");
 
-function onImageChange(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  imageFile.value = file;
-  if (imagePreview.value.startsWith("blob:"))
-    URL.revokeObjectURL(imagePreview.value);
-  imagePreview.value = URL.createObjectURL(file);
-}
-
-onBeforeUnmount(() => {
-  if (imagePreview.value.startsWith("blob:"))
-    URL.revokeObjectURL(imagePreview.value);
-});
+const {
+  file: imageFile,
+  preview: imagePreview,
+  onFileChange: onImageChange,
+} = useImagePreview(props.trade.image);
 
 const total = computed(
   () => (Number(quantity.value) || 0) * (Number(limitPrice.value) || 0),
