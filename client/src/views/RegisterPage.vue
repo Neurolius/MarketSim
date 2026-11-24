@@ -15,7 +15,7 @@ const errorMessage = ref("");
 
 async function handleRegister() {
   try {
-    await profileStore.register(username.value, password.value);
+    await profileStore.register(username.value, password.value, email.value);
     router.push({ name: "dashboard" });
   } catch (error) {
     errorMessage.value =
@@ -65,7 +65,9 @@ async function handleRegister() {
             autocomplete="email"
             placeholder="name@example.com"
           />
-          <span class="form-hint">На него будут приходить коды 2FA</span>
+          <span class="form-hint">
+            Адрес электронной почты аккаунта
+          </span>
         </div>
         <div class="form-field">
           <label class="form-label" for="reg-password">Пароль</label>

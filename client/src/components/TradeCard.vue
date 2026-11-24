@@ -1,5 +1,6 @@
 <script setup>
 import InstrumentLogo from "@/components/InstrumentLogo.vue";
+import TradeImageGallery from "@/components/TradeImageGallery.vue";
 import { formatPrice, formatQuantity } from "@/utils/format.js";
 import { computed } from "vue";
 import {
@@ -70,6 +71,10 @@ const total = computed(
     <div class="trade-card-foot">
       {{ portfolio?.name }} · {{ executionTypeLabels[trade.execution_type] }}
     </div>
+    <TradeImageGallery
+      :images="trade.images"
+      :caption="`Сделка ${trade.instrument_info.ticker}`"
+    />
   </article>
 </template>
 

@@ -1,7 +1,19 @@
+import pyotp
 from django.test import TestCase
 from rest_framework.test import APIClient
 from model_bakery import baker
-from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade
+from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade, Profile
+
+
+def authenticate_with_otp(client, user):
+    client.force_authenticate(user=user)
+    profile, _ = Profile.objects.get_or_create(user=user)
+    response = client.post(
+        '/api/profile/otp-login/',
+        {'key': pyotp.TOTP(profile.otp_key).now()},
+        format='json',
+    )
+    assert response.status_code == 200
 
 
 def response_results(response):
@@ -13,7 +25,7 @@ class InstrumentTypeViewsetTestCase(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = baker.make('auth.User', is_staff=True)
-        self.client.force_authenticate(user=self.user)
+        authenticate_with_otp(self.client, self.user)
 
     def test_get_list(self):
         instr_type = baker.make(InstrumentType)
@@ -75,7 +87,7 @@ class InstrumentViewsetTestCase(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = baker.make('auth.User', is_staff=True)
-        self.client.force_authenticate(user=self.user)
+        authenticate_with_otp(self.client, self.user)
 
     def test_get_list(self):
         instrument = baker.make(Instrument)
@@ -153,7 +165,7 @@ class PortfolioViewsetTestCase(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = baker.make('auth.User')
-        self.client.force_authenticate(user=self.user)
+        authenticate_with_otp(self.client, self.user)
 
     def test_get_list(self):
         portfolio = baker.make(Portfolio, user=self.user)
@@ -311,7 +323,7 @@ class TradeViewsetTestCase(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = baker.make('auth.User')
-        self.client.force_authenticate(user=self.user)
+        authenticate_with_otp(self.client, self.user)
 
     def test_get_list(self):
         portfolio = baker.make(Portfolio, user=self.user)

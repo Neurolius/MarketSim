@@ -39,8 +39,8 @@ const useProfileStore = defineStore('profileStore', () => {
     await fetchMe()
   }
 
-  async function register(username, password) {
-    await axios.post('/api/profile/register/', { username, password })
+  async function register(username, password, email) {
+    await axios.post('/api/profile/register/', { username, password, email })
     await fetchMe()
   }
 

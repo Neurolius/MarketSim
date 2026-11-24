@@ -1,8 +1,14 @@
 <script setup>
-defineProps({
+import { ref, watch } from "vue";
+
+const props = defineProps({
+  modelValue: {
+    type: String,
+    default: "",
+  },
   id: {
     type: String,
-    default: 'code-input',
+    default: "code-input",
   },
   length: {
     type: Number,
@@ -12,7 +18,51 @@ defineProps({
     type: Boolean,
     default: false,
   },
-})
+});
+
+const emit = defineEmits(["update:modelValue"]);
+const cells = ref([]);
+const inputs = ref([]);
+
+watch(
+  () => props.modelValue,
+  (value) => {
+    cells.value = Array.from(
+      { length: props.length },
+      (_, index) => value[index] ?? "",
+    );
+  },
+  { immediate: true },
+);
+
+function updateCell(index, event) {
+  const digits = event.target.value.replace(/\D/g, "");
+  const nextCells = [...cells.value];
+
+  if (digits.length > 1) {
+    for (
+      let offset = 0;
+      offset < digits.length && index + offset < props.length;
+      offset++
+    ) {
+      nextCells[index + offset] = digits[offset];
+    }
+  } else {
+    nextCells[index] = digits;
+  }
+
+  cells.value = nextCells;
+  emit("update:modelValue", nextCells.join(""));
+  if (digits) {
+    inputs.value[Math.min(index + digits.length, props.length - 1)]?.focus();
+  }
+}
+
+function onKeydown(event, index) {
+  if (event.key === "Backspace" && !cells.value[index] && index > 0) {
+    inputs.value[index - 1]?.focus();
+  }
+}
 </script>
 
 <template>
@@ -20,13 +70,17 @@ defineProps({
     <input
       v-for="n in length"
       :key="n"
+      :ref="(element) => (inputs[n - 1] = element)"
       :id="n === 1 ? id : undefined"
       class="code-cell"
       type="text"
       inputmode="numeric"
       maxlength="1"
       autocomplete="one-time-code"
+      :value="cells[n - 1]"
       :aria-label="`Цифра ${n}`"
+      @input="updateCell(n - 1, $event)"
+      @keydown="onKeydown($event, n - 1)"
     />
   </div>
 </template>
