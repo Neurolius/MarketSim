@@ -79,12 +79,8 @@ async function loadPositions() {
   positionCount.value = data.count ?? positionList.value.length;
 }
 
-async function loadHistory() {
-  const params = {
-    instrument: route.params.id,
-    page: historyPage.value,
-    page_size: pageSize,
-  };
+function historyFilterParams() {
+  const params = { instrument: route.params.id };
   if (historyFilters.value.dateFrom) {
     params.date_from = historyFilters.value.dateFrom;
   }
@@ -97,6 +93,17 @@ async function loadHistory() {
   if (historyFilters.value.priceTo !== "") {
     params.price_to = historyFilters.value.priceTo;
   }
+  return params;
+}
+
+const historyExportParams = computed(historyFilterParams);
+
+async function loadHistory() {
+  const params = {
+    ...historyFilterParams(),
+    page: historyPage.value,
+    page_size: pageSize,
+  };
 
   const { data } = await axios.get("/api/pricehistory/", { params });
   priceHistoryList.value = listResults(data);
@@ -395,7 +402,10 @@ watch(positionPage, loadPositions);
             <span class="table-count">{{ historyCount }}</span>
           </h2>
           <div class="export-actions">
-            <ExportButtons />
+            <ExportButtons
+              url="/api/pricehistory/export/"
+              :params="historyExportParams"
+            />
           </div>
         </div>
         <div class="table-wrap">

@@ -2,7 +2,7 @@
 import { computed, onBeforeMount, ref, watch } from "vue";
 import axios from "axios";
 import { toFormData, errorText } from "@/utils/requestFormatter";
-import { inRange, matchesText, listResults } from "@/utils/lists";
+import { listResults } from "@/utils/lists";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import StatCard from "@/components/StatCard.vue";
@@ -20,11 +20,32 @@ const pageSize = 20;
 const totalCount = ref(0);
 const globalStats = ref({ type_count: 0, instrument_count: 0 });
 
+const emptyFilters = () => ({ id: "", name: "", countFrom: "", countTo: "" });
+const filters = ref(emptyFilters());
+
+function filterParams() {
+  const params = {};
+  if (filters.value.id !== "") params.id = filters.value.id;
+  if (filters.value.name) params.name = filters.value.name;
+  if (filters.value.countFrom !== "") {
+    params.count_from = filters.value.countFrom;
+  }
+  if (filters.value.countTo !== "") {
+    params.count_to = filters.value.countTo;
+  }
+  return params;
+}
+
+const exportParams = computed(filterParams);
+
 async function loadTypes() {
+  const params = {
+    ...filterParams(),
+    page: page.value,
+    page_size: pageSize,
+  };
   const [r, stats] = await Promise.all([
-    axios.get("/api/instrumenttype/", {
-      params: { page: page.value, page_size: pageSize },
-    }),
+    axios.get("/api/instrumenttype/", { params }),
     axios.get("/api/instrumenttype/stats/"),
   ]);
   typesList.value = listResults(r.data);
@@ -50,18 +71,16 @@ const stats = computed(() => {
   };
 });
 
-const emptyFilters = () => ({ id: "", name: "", countFrom: "", countTo: "" });
-const filters = ref(emptyFilters());
+const filteredTypes = computed(() => typesList.value);
 
-const filteredTypes = computed(() => {
-  const f = filters.value;
-  return typesList.value.filter(
-    (t) =>
-      (f.id === "" || t.id === f.id) &&
-      matchesText(t.name, f.name) &&
-      inRange(t.instruments_count, f.countFrom, f.countTo),
-  );
-});
+watch(
+  filters,
+  () => {
+    if (page.value !== 1) page.value = 1;
+    else loadTypes();
+  },
+  { deep: true },
+);
 
 const formError = ref("");
 const isSaving = ref(false);
@@ -153,7 +172,10 @@ async function confirmDelete() {
           >
         </h2>
         <div class="export-actions">
-          <ExportButtons />
+          <ExportButtons
+            url="/api/instrumenttype/export/"
+            :params="exportParams"
+          />
         </div>
       </div>
       <div class="table-wrap">

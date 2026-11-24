@@ -35,14 +35,25 @@ const emptyFilters = () => ({
 });
 const filters = ref(emptyFilters());
 
-async function loadInstruments() {
-  const params = { page: page.value, page_size: pageSize };
+function filterParams() {
+  const params = {};
   if (filters.value.search) params.search = filters.value.search;
   if (filters.value.type) params.type = filters.value.type;
   if (filters.value.priceFrom !== "") params.price_from = filters.value.priceFrom;
   if (filters.value.priceTo !== "") params.price_to = filters.value.priceTo;
   if (filters.value.change) params.change = filters.value.change;
   if (filters.value.updatedDate) params.updated_date = filters.value.updatedDate;
+  return params;
+}
+
+const exportParams = computed(filterParams);
+
+async function loadInstruments() {
+  const params = {
+    ...filterParams(),
+    page: page.value,
+    page_size: pageSize,
+  };
 
   const [instruments, types, statsResponse] = await Promise.all([
     axios.get("/api/instrument/", {
@@ -143,9 +154,13 @@ async function saveInstrument(data) {
 }
 
 async function deleteInstrument() {
-  await axios.delete(`/api/instrument/${deletingInstrument.value.id}/`);
-  deletingInstrument.value = null;
-  await loadInstruments();
+  try {
+    await axios.delete(`/api/instrument/${deletingInstrument.value.id}/`);
+    deletingInstrument.value = null;
+    await loadInstruments();
+  } catch (e) {
+    alert(errorText(e));
+  }
 }
 </script>
 
@@ -220,7 +235,7 @@ async function deleteInstrument() {
           >
             Сбросить фильтры
           </button>
-          <ExportButtons />
+          <ExportButtons url="/api/instrument/export/" :params="exportParams" />
         </div>
       </div>
       <div class="table-wrap">

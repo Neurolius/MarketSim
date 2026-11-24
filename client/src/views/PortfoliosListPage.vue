@@ -8,7 +8,6 @@ import PortfolioCard from "@/components/PortfolioCard.vue";
 import EmptyState from "@/components/EmptyState.vue";
 import PortfolioFormModal from "@/components/modals/PortfolioFormModal.vue";
 import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal.vue";
-import TwoFactorModal from "@/components/modals/TwoFactorModal.vue";
 import ImageModal from "@/components/modals/ImageModal.vue";
 import useProfileStore from "@/stores/profileStore";
 
@@ -28,7 +27,6 @@ const profileStore = useProfileStore();
 const formPortfolio = ref(null);
 const deletePortfolio = ref(null);
 const coverPortfolio = ref(null);
-const isTwoFactorOpen = ref(false);
 
 const portfolioList = ref([]);
 const usersList = ref([]);
@@ -37,8 +35,8 @@ const pageSize = 20;
 const totalCount = ref(0);
 const portfolioStats = ref(null);
 
-async function loadPortfolios() {
-  const params = { page: page.value, page_size: pageSize };
+function filterParams() {
+  const params = {};
   if (profileStore.isSuperuser && filters.value.userId) {
     params.user = filters.value.userId;
   }
@@ -55,7 +53,17 @@ async function loadPortfolios() {
   if (filters.value.valueTo !== "") {
     params.value_to = filters.value.valueTo;
   }
+  return params;
+}
 
+const exportParams = computed(filterParams);
+
+async function loadPortfolios() {
+  const params = {
+    ...filterParams(),
+    page: page.value,
+    page_size: pageSize,
+  };
   const requests = [
     axios.get("/api/portfolio/", { params }),
     axios.get("/api/portfolio/stats/", { params: { user: params.user } }),
@@ -161,10 +169,14 @@ async function savePortfolio(data) {
 }
 
 async function confirmDelete() {
-  await axios.delete(`/api/portfolio/${deletePortfolio.value.id}/`);
-  deletePortfolio.value = null;
-  if (page.value > 1 && portfolioList.value.length === 1) page.value -= 1;
-  else await loadPortfolios();
+  try {
+    await axios.delete(`/api/portfolio/${deletePortfolio.value.id}/`);
+    deletePortfolio.value = null;
+    if (page.value > 1 && portfolioList.value.length === 1) page.value -= 1;
+    else await loadPortfolios();
+  } catch (e) {
+    alert(errorText(e));
+  }
 }
 </script>
 
@@ -179,7 +191,11 @@ async function confirmDelete() {
         </p>
       </div>
       <div class="page-actions">
-        <ExportButtons :small="false" />
+        <ExportButtons
+          :small="false"
+          url="/api/portfolio/export/"
+          :params="exportParams"
+        />
         <button
           class="btn btn-primary"
           type="button"
@@ -351,7 +367,6 @@ async function confirmDelete() {
     :caption="`Обложка портфеля «${coverPortfolio.name}»`"
     @close="coverPortfolio = null"
   />
-  <TwoFactorModal v-if="isTwoFactorOpen" @close="isTwoFactorOpen = false" />
 </template>
 
 <style scoped>
