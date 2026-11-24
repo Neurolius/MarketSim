@@ -71,8 +71,6 @@ const stats = computed(() => {
   };
 });
 
-const filteredTypes = computed(() => typesList.value);
-
 watch(
   filters,
   () => {
@@ -168,7 +166,7 @@ async function confirmDelete() {
         <h2 class="table-toolbar-title">
           Справочник
           <span class="table-count"
-            >{{ filteredTypes.length }} из {{ totalCount }}</span
+            >{{ typesList.length }} из {{ totalCount }}</span
           >
         </h2>
         <div class="export-actions">
@@ -224,7 +222,7 @@ async function confirmDelete() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="type in filteredTypes" :key="type.id">
+            <tr v-for="type in typesList" :key="type.id">
               <td class="num text-muted">{{ type.id }}</td>
               <td>
                 <strong>{{ type.name }}</strong>
@@ -255,7 +253,7 @@ async function confirmDelete() {
                 </button>
               </td>
             </tr>
-            <tr v-if="!filteredTypes.length">
+            <tr v-if="!typesList.length">
               <td colspan="4" class="text-muted">Ничего не найдено</td>
             </tr>
           </tbody>

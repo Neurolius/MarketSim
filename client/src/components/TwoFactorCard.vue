@@ -103,7 +103,7 @@ onBeforeMount(loadStatus);
         <div class="form-field">
           <label class="form-label" for="twofa-code">Код из приложения</label>
           <CodeInput id="twofa-code" v-model="code" :invalid="!!error" />
-          <span v-if="error" class="form-error-text" role="alert">
+          <span v-if="error" class="form-error-text">
             {{ error }}
           </span>
         </div>

@@ -92,10 +92,6 @@ const portfolioRows = computed(() =>
     const percent = cost ? (profit / cost) * 100 : 0;
     return {
       ...p,
-      rawBalance: balance,
-      rawValue: value,
-      rawProfit: profit,
-      rawCost: cost,
       positionsCount: Number(p.positions_count ?? 0),
       valueText: `${formatPrice(value)} ₽`,
       profitText: `${formatSigned(profit)} ₽`,
@@ -135,8 +131,6 @@ watch(
   },
   { deep: true },
 );
-
-const filteredPortfolios = portfolioRows;
 
 function resetFilters() {
   filters.value = emptyFilters();
@@ -211,7 +205,7 @@ async function confirmDelete() {
       <StatCard
         label="Портфелей"
         :value="totalCount"
-        :hint="`по фильтру: ${filteredPortfolios.length}`"
+        :hint="`по фильтру: ${portfolioRows.length}`"
       />
       <StatCard
         label="Общая стоимость"
@@ -300,7 +294,7 @@ async function confirmDelete() {
       aria-label="Список портфелей"
     >
       <PortfolioCard
-        v-for="portfolio in filteredPortfolios"
+        v-for="portfolio in portfolioRows"
         :key="portfolio.id"
         :portfolio="portfolio"
         :value="portfolio.valueText"

@@ -14,6 +14,12 @@ const passwordRepeat = ref("");
 const errorMessage = ref("");
 
 async function handleRegister() {
+  errorMessage.value = "";
+  if (password.value !== passwordRepeat.value) {
+    errorMessage.value = "Пароли не совпадают.";
+    return;
+  }
+
   try {
     await profileStore.register(username.value, password.value, email.value);
     router.push({ name: "dashboard" });

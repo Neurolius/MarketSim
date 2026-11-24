@@ -18,8 +18,6 @@ const portfolioPage = ref(1);
 const pageSize = 20;
 const portfolioCount = ref(0);
 const portfolioStats = ref(null);
-const visiblePortfolios = computed(() => portfoliosList.value);
-const lastTrades = computed(() => tradeList.value);
 const portfoliosBalance = computed(() =>
   Number(portfolioStats.value?.balance ?? 0),
 );
@@ -88,7 +86,7 @@ watch(leadersPeriod, fetchLeaders);
         </div>
         <div v-if="portfoliosList.length" class="portfolio-list">
           <PortfolioShortCard
-            v-for="portfolio in visiblePortfolios"
+            v-for="portfolio in portfoliosList"
             :key="portfolio.id"
             :portfolio="portfolio"
             :value="
@@ -130,9 +128,9 @@ watch(leadersPeriod, fetchLeaders);
             >Вся история</router-link
           >
         </div>
-        <div v-if="lastTrades.length" class="trade-list">
+        <div v-if="tradeList.length" class="trade-list">
           <TradeCard
-            v-for="trade in lastTrades"
+            v-for="trade in tradeList"
             :key="trade.id"
             :trade="trade"
             :portfolio="{ name: trade.portfolio_name }"

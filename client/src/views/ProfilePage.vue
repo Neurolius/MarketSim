@@ -13,7 +13,6 @@ import {
   formatQuantity,
   formatDate,
   formatCompact,
-  toDateInputValue,
 } from "@/utils/format";
 import {
   orderTypeLabels,
@@ -75,11 +74,8 @@ const tradeRows = computed(() => {
       portfolioName: t.portfolio_name ?? "—",
       createdText: formatDate(t.created_at),
       executedText: formatDate(t.executed_at),
-      createdDate: toDateInputValue(t.created_at),
-      executedDate: toDateInputValue(t.executed_at),
       quantityText: formatQuantity(t.quantity),
       priceText: unitPrice != null ? `${formatPrice(unitPrice)} ₽` : "—",
-      rawTotal,
       totalText: rawTotal != null ? `${formatPrice(rawTotal)} ₽` : "—",
     };
   });
@@ -119,13 +115,9 @@ function tradeFilterParams() {
 
 const exportParams = computed(tradeFilterParams);
 
-const filteredTrades = tradeRows;
-
 function resetFilters() {
   filters.value = emptyFilters();
 }
-
-const visibleTrades = tradeRows;
 
 watch(
   filters,
@@ -341,7 +333,7 @@ watch(tradePage, loadTrades);
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="trade in visibleTrades" :key="trade.id">
+                <tr v-for="trade in tradeRows" :key="trade.id">
                   <td class="num">{{ trade.createdText }}</td>
                   <td class="num" :class="{ 'text-muted': !trade.executed_at }">
                     {{ trade.executedText }}
@@ -395,7 +387,7 @@ watch(tradePage, loadTrades);
                     >
                   </td>
                 </tr>
-                <tr v-if="!filteredTrades.length">
+                <tr v-if="!tradeRows.length">
                   <td
                     :colspan="profileStore.isSuperuser ? 12 : 11"
                     class="text-muted"
@@ -407,7 +399,7 @@ watch(tradePage, loadTrades);
             </table>
           </div>
           <div class="table-footer">
-            <span>Показано {{ visibleTrades.length }} из {{ tradeCount }}</span>
+            <span>Показано {{ tradeRows.length }} из {{ tradeCount }}</span>
           </div>
           <PaginationControls
             v-if="tradeCount"

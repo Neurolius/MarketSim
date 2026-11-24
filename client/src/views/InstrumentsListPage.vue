@@ -78,8 +78,6 @@ onBeforeMount(loadInstruments);
 
 watch(page, loadInstruments);
 
-const filteredInstrumentsList = computed(() => instrumentsList.value);
-
 function resetFilters() {
   filters.value = emptyFilters();
 }
@@ -316,7 +314,7 @@ async function deleteInstrument() {
           </thead>
           <tbody>
             <tr
-              v-for="instrument in filteredInstrumentsList"
+              v-for="instrument in instrumentsList"
               :key="instrument.id"
             >
               <td>
@@ -388,7 +386,7 @@ async function deleteInstrument() {
                 </div>
               </td>
             </tr>
-            <tr v-if="!filteredInstrumentsList.length">
+            <tr v-if="!instrumentsList.length">
               <td colspan="7" class="text-muted">
                 Ничего не найдено — попробуйте изменить фильтры
               </td>
@@ -398,7 +396,7 @@ async function deleteInstrument() {
       </div>
       <div class="table-footer">
         <span
-          >Показано {{ filteredInstrumentsList.length }} из
+          >Показано {{ instrumentsList.length }} из
           {{ totalCount }}</span
         >
       </div>

@@ -32,7 +32,6 @@ import {
 import PaginationControls from "@/components/PaginationControls.vue";
 
 const isEditOpen = ref(false);
-const isDeleteOpen = ref(false);
 const imageModal = ref(null);
 const sellPosition = ref(null);
 const editTrade = ref(null);
@@ -162,9 +161,6 @@ const positionRows = computed(() => {
       ...pos,
       typeId,
       typeName: typesById[typeId]?.name ?? "—",
-      rawValue: c.value,
-      rawCost: c.cost,
-      rawProfit: c.profit,
       quantityText: formatQuantity(c.quantity),
       averageText: formatPrice(c.average),
       currentText: formatPrice(c.current),
@@ -193,9 +189,6 @@ const totals = computed(() => {
     pendingCount: Number(stats.pendingCount ?? 0),
   };
 });
-
-const filteredPositions = positionRows;
-const filteredTrades = computed(() => tradeList.value);
 
 const formError = ref("");
 const isSaving = ref(false);
@@ -297,9 +290,6 @@ async function cancelTrade() {
     cancellingTrade.value = null;
   }
 }
-
-const visiblePositions = positionRows;
-const visibleTrades = tradeList;
 
 watch(
   positionFilters,
@@ -488,7 +478,7 @@ watch(tradePage, loadTrades);
             </tr>
           </thead>
           <tbody>
-            <tr v-for="position in visiblePositions" :key="position.id">
+            <tr v-for="position in positionRows" :key="position.id">
               <td>
                 <div class="cell-instrument">
                   <InstrumentLogo
@@ -543,7 +533,7 @@ watch(tradePage, loadTrades);
                 </button>
               </td>
             </tr>
-            <tr v-if="!filteredPositions.length">
+            <tr v-if="!positionRows.length">
               <td colspan="8" class="text-muted">Позиций нет</td>
             </tr>
           </tbody>
@@ -647,7 +637,7 @@ watch(tradePage, loadTrades);
             </tr>
           </thead>
           <tbody>
-            <tr v-for="trade in visibleTrades" :key="trade.id">
+            <tr v-for="trade in tradeList" :key="trade.id">
               <td class="num">
                 {{ new Date(trade.created_at).toLocaleString() }}
               </td>
@@ -713,7 +703,7 @@ watch(tradePage, loadTrades);
                 </template>
               </td>
             </tr>
-            <tr v-if="!filteredTrades.length">
+            <tr v-if="!tradeList.length">
               <td colspan="10" class="text-muted">Сделок нет</td>
             </tr>
           </tbody>

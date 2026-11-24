@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onBeforeMount, computed, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import InstrumentLogo from "@/components/InstrumentLogo.vue";
 import PriceChart from "@/components/PriceChart.vue";
@@ -16,7 +16,6 @@ import {
   formatQuantity,
   formatSigned,
   formatDate,
-  toDateInputValue,
 } from "@/utils/format";
 import { toFormData, errorText } from "@/utils/requestFormatter";
 import { byId, listResults } from "@/utils/lists";
@@ -28,7 +27,6 @@ const sellPosition = ref(null);
 const portfolioList = ref([]);
 const instrumentTrade = ref(null);
 const route = useRoute();
-const router = useRouter();
 const positionList = ref([]);
 const priceHistoryList = ref([]);
 const chartHistoryList = ref([]);
@@ -111,9 +109,6 @@ async function loadHistory() {
   historyCount.value = data.count ?? priceHistoryList.value.length;
 }
 
-const visiblePositions = computed(() => positionRows.value);
-const visibleHistory = computed(() => historyRows.value);
-
 const positionRows = computed(() => {
   const portfoliosById = byId(portfolioList.value);
   return positionList.value.map((p) => {
@@ -136,8 +131,6 @@ const historyRows = computed(() =>
     const percent = older ? (price / Number(older.price) - 1) * 100 : 0;
     return {
       id: record.id,
-      date: toDateInputValue(record.timestamp),
-      rawPrice: price,
       timestamp: formatDate(record.timestamp),
       price: formatPrice(price),
       change: formatSigned(percent) + "%",
@@ -353,7 +346,7 @@ watch(positionPage, loadPositions);
                   В ваших портфелях нет этого инструмента
                 </td>
               </tr>
-              <tr v-for="position in visiblePositions" :key="position.id">
+              <tr v-for="position in positionRows" :key="position.id">
                 <td>
                   <router-link
                     :to="{
@@ -451,7 +444,7 @@ watch(positionPage, loadPositions);
               </tr>
             </thead>
             <tbody>
-              <tr v-for="record in visibleHistory" :key="record.id">
+              <tr v-for="record in historyRows" :key="record.id">
                 <td class="num">{{ record.timestamp }}</td>
                 <td class="col-num num">{{ record.price }} ₽</td>
                 <td class="col-num">
