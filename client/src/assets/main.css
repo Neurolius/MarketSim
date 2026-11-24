@@ -220,6 +220,10 @@ select {
   gap: var(--space-3);
   align-items: center;
 }
+.inline-row.table-action-buttons {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
 
 .avatar {
   width: 30px;

@@ -362,7 +362,7 @@ async function deleteInstrument() {
               </td>
               <td class="text-muted text-sm num">{{ instrument.updated }}</td>
               <td class="col-actions">
-                <div class="inline-row">
+                <div class="inline-row table-action-buttons">
                   <router-link
                     :to="{ name: 'instrument', params: { id: instrument.id } }"
                     class="btn btn-buy btn-sm"
