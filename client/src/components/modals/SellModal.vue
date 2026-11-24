@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import BaseModal from "@/components/BaseModal.vue";
 import InstrumentLogo from "@/components/InstrumentLogo.vue";
 import AppIcon from "@/components/AppIcon.vue";
+import MultiImageUpload from "@/components/MultiImageUpload.vue";
 import { formatPrice, formatQuantity, formatSigned } from "@/utils/format";
 
 const props = defineProps({
@@ -29,6 +30,7 @@ const emit = defineEmits(["close", "submit"]);
 const executionType = ref("market");
 const quantity = ref(null);
 const limitPrice = ref(null);
+const imageFiles = ref([]);
 
 const isLimit = computed(() => executionType.value === "limit");
 const maxQuantity = computed(() => Number(props.position.quantity));
@@ -56,6 +58,7 @@ function submit() {
     execution_type: executionType.value,
     quantity: quantity.value,
     price: isLimit.value ? limitPrice.value : null,
+    new_images: imageFiles.value,
   });
 }
 </script>
@@ -137,6 +140,14 @@ function submit() {
           :placeholder="isLimit ? '' : '—'"
         />
       </div>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label" for="sell-images">
+        Изображения сделки
+        <span class="form-label-hint">(необязательно)</span>
+      </label>
+      <MultiImageUpload id="sell-images" v-model="imageFiles" />
     </div>
 
     <div class="order-summary">

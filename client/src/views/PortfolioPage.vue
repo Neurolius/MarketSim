@@ -4,6 +4,7 @@ import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import StatCard from "@/components/StatCard.vue";
 import ExportButtons from "@/components/ExportButtons.vue";
+import TradeImageGallery from "@/components/TradeImageGallery.vue";
 import InstrumentLogo from "@/components/InstrumentLogo.vue";
 import PortfolioFormModal from "@/components/modals/PortfolioFormModal.vue";
 import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal.vue";
@@ -21,10 +22,7 @@ import {
   formatCompactSigned,
 } from "@/utils/format";
 import { toFormData, errorText } from "@/utils/requestFormatter";
-import {
-  byId,
-  listResults,
-} from "@/utils/lists";
+import { byId, listResults } from "@/utils/lists";
 import { calcPosition } from "@/utils/positions";
 import {
   orderTypeLabels,
@@ -73,12 +71,8 @@ const emptyTradeFilters = () => ({
 });
 const tradeFilters = ref(emptyTradeFilters());
 
-function positionParams() {
-  const params = {
-    portfolio: route.params.id,
-    page: positionPage.value,
-    page_size: pageSize,
-  };
+function positionFilterParams() {
+  const params = { portfolio: route.params.id };
   const filters = {
     ticker: positionFilters.value.ticker,
     type: positionFilters.value.type,
@@ -94,12 +88,16 @@ function positionParams() {
   return params;
 }
 
-function tradeParams() {
-  const params = {
-    portfolio: route.params.id,
-    page: tradePage.value,
+function positionParams() {
+  return {
+    ...positionFilterParams(),
+    page: positionPage.value,
     page_size: pageSize,
   };
+}
+
+function tradeFilterParams() {
+  const params = { portfolio: route.params.id };
   const filters = {
     created: tradeFilters.value.date,
     ticker: tradeFilters.value.ticker,
@@ -112,6 +110,17 @@ function tradeParams() {
   });
   return params;
 }
+
+function tradeParams() {
+  return {
+    ...tradeFilterParams(),
+    page: tradePage.value,
+    page_size: pageSize,
+  };
+}
+
+const positionExportParams = computed(positionFilterParams);
+const tradeExportParams = computed(tradeFilterParams);
 
 async function loadPositions() {
   const { data } = await axios.get("/api/position/", {
@@ -146,26 +155,25 @@ onBeforeMount(async () => {
 
 const positionRows = computed(() => {
   const typesById = byId(typesList.value);
-  return positionList.value
-    .map((pos) => {
-      const c = calcPosition(pos);
-      const typeId = pos.instrument_info.instrument_type;
-      return {
-        ...pos,
-        typeId,
-        typeName: typesById[typeId]?.name ?? "—",
-        rawValue: c.value,
-        rawCost: c.cost,
-        rawProfit: c.profit,
-        quantityText: formatQuantity(c.quantity),
-        averageText: formatPrice(c.average),
-        currentText: formatPrice(c.current),
-        valueText: formatPrice(c.value),
-        profitText: `${formatSigned(c.profit)} ₽`,
-        percentText: `${formatSigned(c.percent)}%`,
-        isUp: c.profit >= 0,
-      };
-    });
+  return positionList.value.map((pos) => {
+    const c = calcPosition(pos);
+    const typeId = pos.instrument_info.instrument_type;
+    return {
+      ...pos,
+      typeId,
+      typeName: typesById[typeId]?.name ?? "—",
+      rawValue: c.value,
+      rawCost: c.cost,
+      rawProfit: c.profit,
+      quantityText: formatQuantity(c.quantity),
+      averageText: formatPrice(c.average),
+      currentText: formatPrice(c.current),
+      valueText: formatPrice(c.value),
+      profitText: `${formatSigned(c.profit)} ₽`,
+      percentText: `${formatSigned(c.percent)}%`,
+      isUp: c.profit >= 0,
+    };
+  });
 });
 
 const totals = computed(() => {
@@ -215,8 +223,12 @@ async function savePortfolio(data) {
 }
 
 async function deletePortfolio() {
-  await axios.delete(`/api/portfolio/${portfolio.value.id}/`);
-  router.push({ name: "portfolios" });
+  try {
+    await axios.delete(`/api/portfolio/${portfolio.value.id}/`);
+    router.push({ name: "portfolios" });
+  } catch (e) {
+    alert(errorText(e));
+  }
 }
 
 const sellError = ref("");
@@ -345,11 +357,7 @@ watch(tradePage, loadTrades);
             <AppIcon name="edit" />
             Изменить
           </button>
-          <button
-            class="btn btn-danger"
-            type="button"
-            @click="isDeleteOpen = true"
-          >
+          <button class="btn btn-danger" type="button" @click="deletePortfolio">
             <AppIcon name="trash" />
             Удалить
           </button>
@@ -393,7 +401,10 @@ watch(tradePage, loadTrades);
           <span class="table-count">{{ positionCount }}</span>
         </h2>
         <div class="export-actions">
-          <ExportButtons />
+          <ExportButtons
+            url="/api/position/export/"
+            :params="positionExportParams"
+          />
         </div>
       </div>
       <div class="table-wrap">
@@ -582,7 +593,7 @@ watch(tradePage, loadTrades);
           <span class="table-count">{{ tradeCount }}</span>
         </h2>
         <div class="export-actions">
-          <ExportButtons />
+          <ExportButtons url="/api/trade/export/" :params="tradeExportParams" />
         </div>
       </div>
       <div class="table-wrap">
@@ -701,23 +712,11 @@ watch(tradePage, loadTrades);
                 </span>
               </td>
               <td>
-                <button
-                  v-if="trade.image"
-                  class="row-thumb"
-                  type="button"
-                  aria-label="Открыть изображение сделки"
-                  :style="{
-                    backgroundImage: `url(${trade.image})`,
-                    backgroundSize: 'cover',
-                  }"
-                  @click="
-                    imageModal = {
-                      src: trade.image,
-                      caption: `Сделка ${trade.instrument_info.ticker}`,
-                    }
-                  "
-                ></button>
-                <span v-else class="text-muted">—</span>
+                <TradeImageGallery
+                  :images="trade.images"
+                  :caption="`Сделка ${trade.instrument_info.ticker}`"
+                />
+                <span v-if="!trade.images?.length" class="text-muted">—</span>
               </td>
               <td class="col-actions">
                 <template v-if="trade.status === 'pending'">
@@ -745,9 +744,7 @@ watch(tradePage, loadTrades);
         </table>
       </div>
       <div class="table-footer">
-        <span
-          >Показано {{ tradeList.length }} из {{ tradeCount }}</span
-        >
+        <span>Показано {{ tradeList.length }} из {{ tradeCount }}</span>
       </div>
       <PaginationControls
         v-if="tradeCount"

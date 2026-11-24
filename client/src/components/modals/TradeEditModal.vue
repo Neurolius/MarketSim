@@ -2,10 +2,9 @@
 import { computed, ref } from "vue";
 import AppIcon from "@/components/AppIcon.vue";
 import BaseModal from "@/components/BaseModal.vue";
-import ImageUpload from "@/components/ImageUpload.vue";
+import MultiImageUpload from "@/components/MultiImageUpload.vue";
 import { formatPrice } from "@/utils/format";
 import { orderTypeLabels, executionTypeLabels } from "@/utils/labels";
-import { useImagePreview } from "@/composables/useImagePreview";
 
 const props = defineProps({
   trade: { type: Object, required: true },
@@ -16,12 +15,7 @@ const emit = defineEmits(["close", "submit", "cancel-trade"]);
 
 const quantity = ref(Number(props.trade.quantity));
 const limitPrice = ref(props.trade.price ? Number(props.trade.price) : null);
-
-const {
-  file: imageFile,
-  preview: imagePreview,
-  onFileChange: onImageChange,
-} = useImagePreview(props.trade.image);
+const imageFiles = ref([]);
 
 const total = computed(
   () => (Number(quantity.value) || 0) * (Number(limitPrice.value) || 0),
@@ -35,7 +29,7 @@ function submit() {
   emit("submit", {
     quantity: quantity.value,
     price: limitPrice.value,
-    image: imageFile.value,
+    new_images: imageFiles.value,
   });
 }
 </script>
@@ -88,19 +82,13 @@ function submit() {
 
     <div class="form-field">
       <span class="form-label">
-        Изображение <span class="form-label-hint">(необязательно)</span>
+        Изображения сделки
+        <span class="form-label-hint">(необязательно)</span>
       </span>
-      <ImageUpload
-        id="trade-image"
-        :preview-url="imagePreview"
-        icon="image"
-        :action-text="
-          imagePreview ? 'Заменить скриншот' : 'Прикрепить скриншот'
-        "
-        text="графика"
-        hint=""
-        @change="onImageChange"
-      />
+      <MultiImageUpload id="trade-images" v-model="imageFiles" />
+      <span v-if="trade.images?.length" class="form-hint">
+        Уже прикреплено: {{ trade.images.length }}
+      </span>
     </div>
 
     <div class="order-summary">

@@ -2,6 +2,7 @@
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import StatCard from "@/components/StatCard.vue";
 import ExportButtons from "@/components/ExportButtons.vue";
+import TradeImageGallery from "@/components/TradeImageGallery.vue";
 import TwoFactorCard from "@/components/TwoFactorCard.vue";
 import useProfileStore from "@/stores/profileStore";
 import { computed, onBeforeMount, ref, watch } from "vue";
@@ -41,17 +42,11 @@ const tradeCount = ref(0);
 const pageSize = 20;
 
 async function loadTrades() {
-  const params = { page: tradePage.value, page_size: pageSize };
-  const f = filters.value;
-  if (f.created) params.created = f.created;
-  if (f.executed) params.executed = f.executed;
-  if (f.portfolio) params.portfolio = f.portfolio;
-  if (f.ticker) params.ticker = f.ticker;
-  if (f.orderType) params.order_type = f.orderType;
-  if (f.executionType) params.execution_type = f.executionType;
-  if (f.totalFrom !== "") params.total_from = f.totalFrom;
-  if (f.totalTo !== "") params.total_to = f.totalTo;
-  if (f.status) params.status = f.status;
+  const params = {
+    ...tradeFilterParams(),
+    page: tradePage.value,
+    page_size: pageSize,
+  };
 
   const { data } = await axios.get("/api/trade/", { params });
   tradeList.value = listResults(data);
@@ -90,7 +85,9 @@ const tradeRows = computed(() => {
   });
 });
 
-const turnover = computed(() => Number(stats.value.buys) + Number(stats.value.sells));
+const turnover = computed(
+  () => Number(stats.value.buys) + Number(stats.value.sells),
+);
 
 const emptyFilters = () => ({
   created: "",
@@ -104,6 +101,23 @@ const emptyFilters = () => ({
   status: "",
 });
 const filters = ref(emptyFilters());
+
+function tradeFilterParams() {
+  const params = {};
+  const f = filters.value;
+  if (f.created) params.created = f.created;
+  if (f.executed) params.executed = f.executed;
+  if (f.portfolio) params.portfolio = f.portfolio;
+  if (f.ticker) params.ticker = f.ticker;
+  if (f.orderType) params.order_type = f.orderType;
+  if (f.executionType) params.execution_type = f.executionType;
+  if (f.totalFrom !== "") params.total_from = f.totalFrom;
+  if (f.totalTo !== "") params.total_to = f.totalTo;
+  if (f.status) params.status = f.status;
+  return params;
+}
+
+const exportParams = computed(tradeFilterParams);
 
 const filteredTrades = tradeRows;
 
@@ -218,7 +232,7 @@ watch(tradePage, loadTrades);
               >
                 Сбросить фильтры
               </button>
-              <ExportButtons />
+              <ExportButtons url="/api/trade/export/" :params="exportParams" />
             </div>
           </div>
           <div class="table-wrap trades-scroll">
@@ -238,6 +252,7 @@ watch(tradePage, loadTrades);
                   <th class="col-num">Цена</th>
                   <th class="col-num">Сумма</th>
                   <th>Статус</th>
+                  <th>Фото</th>
                 </tr>
                 <tr class="filter-row">
                   <th>
@@ -340,6 +355,7 @@ watch(tradePage, loadTrades);
                       <option value="cancelled">Отменена</option>
                     </select>
                   </th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -387,10 +403,19 @@ watch(tradePage, loadTrades);
                       {{ statusLabels[trade.status] }}
                     </span>
                   </td>
+                  <td>
+                    <TradeImageGallery
+                      :images="trade.images"
+                      :caption="`Сделка ${trade.instrument_info.ticker}`"
+                    />
+                    <span v-if="!trade.images?.length" class="text-muted"
+                      >—</span
+                    >
+                  </td>
                 </tr>
                 <tr v-if="!filteredTrades.length">
                   <td
-                    :colspan="profileStore.isSuperuser ? 11 : 10"
+                    :colspan="profileStore.isSuperuser ? 12 : 11"
                     class="text-muted"
                   >
                     Сделок нет
@@ -400,9 +425,7 @@ watch(tradePage, loadTrades);
             </table>
           </div>
           <div class="table-footer">
-            <span
-              >Показано {{ visibleTrades.length }} из {{ tradeCount }}</span
-            >
+            <span>Показано {{ visibleTrades.length }} из {{ tradeCount }}</span>
           </div>
           <PaginationControls
             v-if="tradeCount"

@@ -2,9 +2,12 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import User
+import pyotp
 
 class Profile(models.Model):
     user = models.OneToOneField("auth.User", on_delete=models.CASCADE, null=True, blank=True)
+    otp_key = models.CharField("Ключ двухфакторной аутентификации", max_length=32, default=pyotp.random_base32)
+    otp_enabled = models.BooleanField("Двухфакторная аутентификация настроена", default=False)
 
     def __str__(self):
         return self.user.username if self.user else f"Profile {self.id}"
@@ -120,7 +123,14 @@ class Trade(models.Model):
     execution_price = models.DecimalField("Цена исполнения", max_digits=15, decimal_places=4, blank=True, null=True)
     created_at = models.DateTimeField("Создано в", auto_now_add=True)
     executed_at = models.DateTimeField("Исполнено в", blank=True, null=True)
-    image = models.ImageField("Изображение", upload_to='trade_images/', blank=True, null=True)
 
     def __str__(self):
         return f"{self.order_type} {self.quantity} {self.instrument} ({self.status})"
+
+
+class TradeImage(models.Model):
+    trade = models.ForeignKey(Trade, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField("Изображение", upload_to="trade_images/")
+
+    def __str__(self):
+        return f"Изображение сделки {self.trade_id}"

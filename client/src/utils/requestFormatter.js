@@ -1,8 +1,11 @@
 export function toFormData(data) {
   const formData = new FormData();
   for (const [key, value] of Object.entries(data)) {
-    if (value !== null && value !== undefined && value !== "")
+    if (Array.isArray(value)) {
+      value.forEach((item) => formData.append(key, item));
+    } else if (value !== null && value !== undefined && value !== "") {
       formData.append(key, value);
+    }
   }
   return formData;
 }

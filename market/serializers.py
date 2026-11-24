@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade
+from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade, TradeImage
 
 
 class InstrumentTypeSerializer(serializers.ModelSerializer):
@@ -67,16 +67,35 @@ class PriceHistorySerializer(serializers.ModelSerializer):
         read_only_fields = ['instrument', 'price', 'timestamp']
 
 
+class TradeImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TradeImage
+        fields = ['id', 'image']
+
+
 class TradeSerializer(serializers.ModelSerializer):
     instrument_info = InstrumentSerializer(source='instrument', read_only=True)
     portfolio_name = serializers.CharField(source='portfolio.name', read_only=True)
+    images = TradeImageSerializer(many=True, read_only=True)
+    new_images = serializers.ListField(
+        child=serializers.ImageField(),
+        required=False,
+        write_only=True,
+    )
 
     class Meta:
         model = Trade
         fields = ['id', 'portfolio', 'portfolio_name', 'instrument', 'instrument_info', 'order_type',
                   'execution_type', 'quantity', 'price', 'status',
-                  'execution_price', 'created_at', 'executed_at', 'image']
+                  'execution_price', 'created_at', 'executed_at', 'images', 'new_images']
         read_only_fields = ['execution_price', 'status', 'created_at', 'executed_at']
+
+    def create(self, validated_data):
+        images = validated_data.pop('new_images', [])
+        trade = super().create(validated_data)
+        for image in images:
+            TradeImage.objects.create(trade=trade, image=image)
+        return trade
 
     def validate(self, data):
         request = self.context.get('request')
@@ -92,9 +111,22 @@ class TradeSerializer(serializers.ModelSerializer):
         return data
 
 class TradeUpdateSerializer(serializers.ModelSerializer):
+    new_images = serializers.ListField(
+        child=serializers.ImageField(),
+        required=False,
+        write_only=True,
+    )
+
     class Meta:
         model = Trade
-        fields = ['quantity', 'price', 'image']
+        fields = ['quantity', 'price', 'new_images']
+
+    def update(self, instance, validated_data):
+        images = validated_data.pop('new_images', [])
+        trade = super().update(instance, validated_data)
+        for image in images:
+            TradeImage.objects.create(trade=trade, image=image)
+        return trade
 
     def validate_quantity(self, value):
         if value <= 0:

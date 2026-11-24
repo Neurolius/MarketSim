@@ -1,5 +1,6 @@
 <script setup>
 import AppIcon from "@/components/AppIcon.vue";
+import MultiImageUpload from "@/components/MultiImageUpload.vue";
 import { formatPrice, formatQuantity } from "@/utils/format.js";
 import { computed, ref, watch } from "vue";
 
@@ -28,8 +29,7 @@ const portfolioId = ref(null);
 const executionType = ref("market");
 const quantity = ref(null);
 const limitPrice = ref(null);
-const imageFile = ref(null);
-const fileInput = ref(null);
+const imageFiles = ref([]);
 
 watch(
   () => props.portfolios,
@@ -58,27 +58,20 @@ const canSubmit = computed(
     !props.loading,
 );
 
-function onFileChange(event) {
-  imageFile.value = event.target.files[0] || null;
-}
-
 function submit() {
   emit("submit", {
     portfolio: portfolioId.value,
     execution_type: executionType.value,
     quantity: quantity.value,
     price: isLimit.value ? limitPrice.value : null,
-    image: imageFile.value,
+    new_images: imageFiles.value,
   });
 }
 
 function reset() {
   quantity.value = null;
   limitPrice.value = null;
-  imageFile.value = null;
-  if (fileInput.value) {
-    fileInput.value.value = "";
-  }
+  imageFiles.value = [];
 }
 defineExpose({
   reset,
@@ -165,18 +158,11 @@ defineExpose({
       </div>
 
       <div class="form-field">
-        <label class="form-label" for="buy-image">
-          Скриншот / заметка к сделке
+        <label class="form-label" for="buy-images">
+          Изображения сделки
           <span class="form-label-hint">(необязательно)</span>
         </label>
-        <input
-          id="buy-image"
-          ref="fileInput"
-          class="form-input"
-          type="file"
-          accept="image/*"
-          @change="onFileChange"
-        />
+        <MultiImageUpload id="buy-images" v-model="imageFiles" />
       </div>
 
       <div class="order-summary">
