@@ -34,7 +34,6 @@ function onChange(event) {
       :id="id"
       class="form-input"
       type="file"
-      accept="image/*"
       multiple
       @change="onChange"
     />

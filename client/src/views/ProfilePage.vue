@@ -187,7 +187,7 @@ watch(tradePage, loadTrades);
       </div>
 
       <div class="stack">
-        <section class="stats-grid" aria-label="Статистика сделок">
+        <section class="stats-grid">
           <StatCard
             label="Всего сделок"
             :value="stats.total"
@@ -259,7 +259,6 @@ watch(tradePage, loadTrades);
                     <input
                       class="filter-input"
                       type="date"
-                      aria-label="Создана"
                       v-model="filters.created"
                     />
                   </th>
@@ -267,21 +266,16 @@ watch(tradePage, loadTrades);
                     <input
                       class="filter-input"
                       type="date"
-                      aria-label="Исполнена"
                       v-model="filters.executed"
                     />
                   </th>
                   <th v-if="profileStore.isSuperuser">
-                    <select class="filter-select" aria-label="Пользователь">
+                    <select class="filter-select">
                       <option value="">Все</option>
                     </select>
                   </th>
                   <th>
-                    <select
-                      v-model="filters.portfolio"
-                      class="filter-select"
-                      aria-label="Портфель"
-                    >
+                    <select v-model="filters.portfolio" class="filter-select">
                       <option value="">Все</option>
                       <option
                         v-for="p in portfolioList"
@@ -297,16 +291,11 @@ watch(tradePage, loadTrades);
                       class="filter-input"
                       type="search"
                       placeholder="Тикер"
-                      aria-label="Тикер"
                       v-model="filters.ticker"
                     />
                   </th>
                   <th>
-                    <select
-                      class="filter-select"
-                      aria-label="Операция"
-                      v-model="filters.orderType"
-                    >
+                    <select class="filter-select" v-model="filters.orderType">
                       <option value="">Все</option>
                       <option value="buy">Покупка</option>
                       <option value="sell">Продажа</option>
@@ -315,7 +304,6 @@ watch(tradePage, loadTrades);
                   <th>
                     <select
                       class="filter-select"
-                      aria-label="Исполнение"
                       v-model="filters.executionType"
                     >
                       <option value="">Все</option>
@@ -331,24 +319,18 @@ watch(tradePage, loadTrades);
                         class="filter-input"
                         type="number"
                         placeholder="от"
-                        aria-label="Сумма от"
                         v-model.number="filters.totalFrom"
                       />
                       <input
                         class="filter-input"
                         type="number"
                         placeholder="до"
-                        aria-label="Сумма до"
                         v-model.number="filters.totalTo"
                       />
                     </div>
                   </th>
                   <th>
-                    <select
-                      class="filter-select"
-                      aria-label="Статус"
-                      v-model="filters.status"
-                    >
+                    <select class="filter-select" v-model="filters.status">
                       <option value="">Все</option>
                       <option value="pending">Ожидает</option>
                       <option value="executed">Исполнена</option>

@@ -34,7 +34,6 @@ defineEmits(["open"]);
       { 'instrument-logo-lg': large, 'is-zoomable': zoomable },
     ]"
     :type="zoomable ? 'button' : undefined"
-    :aria-label="zoomable ? `Открыть логотип ${ticker}` : undefined"
     @click="zoomable && $emit('open')"
   >
     <img v-if="logo" :src="logo" :alt="ticker" />

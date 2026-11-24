@@ -114,7 +114,7 @@ function submit() {
       />
     </div>
 
-    <div v-if="error" class="alert alert-error" role="alert">
+    <div v-if="error" class="alert alert-error">
       <AppIcon name="alert" />
       <span>{{ error }}</span>
     </div>

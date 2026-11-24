@@ -326,7 +326,7 @@ watch(tradePage, loadTrades);
 <template>
   <HeaderNavbar />
   <main v-if="portfolio" class="page">
-    <nav class="breadcrumbs" aria-label="Навигационная цепочка">
+    <nav class="breadcrumbs">
       <router-link :to="{ name: 'portfolios' }">Портфели</router-link>
       <span class="breadcrumbs-sep">/</span>
       <span>{{ portfolio.name }}</span>
@@ -336,7 +336,6 @@ watch(tradePage, loadTrades);
       <button
         class="portfolio-hero-cover"
         type="button"
-        aria-label="Открыть обложку портфеля"
         @click="
           portfolio.cover_image &&
           (imageModal = {
@@ -365,7 +364,7 @@ watch(tradePage, loadTrades);
       </div>
     </section>
 
-    <section class="stats-grid" aria-label="Статистика портфеля">
+    <section class="stats-grid">
       <StatCard
         label="Стоимость"
         :value="`${formatCompact(totals.value)} ₽`"
@@ -433,11 +432,7 @@ watch(tradePage, loadTrades);
                 />
               </th>
               <th>
-                <select
-                  v-model="positionFilters.type"
-                  class="filter-select"
-                  aria-label="Тип"
-                >
+                <select v-model="positionFilters.type" class="filter-select">
                   <option value="">Все</option>
                   <option
                     v-for="type in typesList"
@@ -454,14 +449,12 @@ watch(tradePage, loadTrades);
                     class="filter-input"
                     type="number"
                     placeholder="от"
-                    aria-label="Количество от"
                     v-model.number="positionFilters.qtyFrom"
                   />
                   <input
                     class="filter-input"
                     type="number"
                     placeholder="до"
-                    aria-label="Количество до"
                     v-model.number="positionFilters.qtyTo"
                   />
                 </div>
@@ -474,24 +467,18 @@ watch(tradePage, loadTrades);
                     class="filter-input"
                     type="number"
                     placeholder="от"
-                    aria-label="Стоимость от"
                     v-model.number="positionFilters.valueFrom"
                   />
                   <input
                     class="filter-input"
                     type="number"
                     placeholder="до"
-                    aria-label="Стоимость до"
                     v-model.number="positionFilters.valueTo"
                   />
                 </div>
               </th>
               <th>
-                <select
-                  class="filter-select"
-                  aria-label="Результат"
-                  v-model="positionFilters.result"
-                >
+                <select class="filter-select" v-model="positionFilters.result">
                   <option value="">Все</option>
                   <option value="profit">Прибыль</option>
                   <option value="loss">Убыток</option>
@@ -616,7 +603,6 @@ watch(tradePage, loadTrades);
                 <input
                   class="filter-input"
                   type="date"
-                  aria-label="Дата создания"
                   v-model="tradeFilters.date"
                 />
               </th>
@@ -625,16 +611,11 @@ watch(tradePage, loadTrades);
                   class="filter-input"
                   type="search"
                   placeholder="Тикер"
-                  aria-label="Тикер"
                   v-model="tradeFilters.ticker"
                 />
               </th>
               <th>
-                <select
-                  class="filter-select"
-                  aria-label="Операция"
-                  v-model="tradeFilters.orderType"
-                >
+                <select class="filter-select" v-model="tradeFilters.orderType">
                   <option value="">Все</option>
                   <option value="buy">Покупка</option>
                   <option value="sell">Продажа</option>
@@ -644,7 +625,6 @@ watch(tradePage, loadTrades);
                 <select
                   v-model="tradeFilters.executionType"
                   class="filter-select"
-                  aria-label="Исполнение"
                 >
                   <option value="">Все</option>
                   <option value="market">Рыночная</option>
@@ -655,11 +635,7 @@ watch(tradePage, loadTrades);
               <th></th>
               <th></th>
               <th>
-                <select
-                  class="filter-select"
-                  aria-label="Статус"
-                  v-model="tradeFilters.status"
-                >
+                <select class="filter-select" v-model="tradeFilters.status">
                   <option value="">Все</option>
                   <option value="pending">Ожидает</option>
                   <option value="executed">Исполнена</option>

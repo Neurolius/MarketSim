@@ -37,7 +37,7 @@ async function handleRegister() {
         </p>
       </div>
 
-      <div v-if="errorMessage" class="alert alert-error" role="alert">
+      <div v-if="errorMessage" class="alert alert-error">
         <AppIcon name="alert" />
         <span>{{ errorMessage }}</span>
       </div>
@@ -65,9 +65,7 @@ async function handleRegister() {
             autocomplete="email"
             placeholder="name@example.com"
           />
-          <span class="form-hint">
-            Адрес электронной почты аккаунта
-          </span>
+          <span class="form-hint"> Адрес электронной почты аккаунта </span>
         </div>
         <div class="form-field">
           <label class="form-label" for="reg-password">Пароль</label>

@@ -39,10 +39,12 @@ function filterParams() {
   const params = {};
   if (filters.value.search) params.search = filters.value.search;
   if (filters.value.type) params.type = filters.value.type;
-  if (filters.value.priceFrom !== "") params.price_from = filters.value.priceFrom;
+  if (filters.value.priceFrom !== "")
+    params.price_from = filters.value.priceFrom;
   if (filters.value.priceTo !== "") params.price_to = filters.value.priceTo;
   if (filters.value.change) params.change = filters.value.change;
-  if (filters.value.updatedDate) params.updated_date = filters.value.updatedDate;
+  if (filters.value.updatedDate)
+    params.updated_date = filters.value.updatedDate;
   return params;
 }
 
@@ -223,9 +225,7 @@ async function deleteInstrument() {
       <div class="table-toolbar">
         <h2 class="table-toolbar-title">
           Каталог
-          <span class="table-count"
-            >{{ totalCount }}</span
-          >
+          <span class="table-count">{{ totalCount }}</span>
         </h2>
         <div class="export-actions">
           <button
@@ -286,24 +286,18 @@ async function deleteInstrument() {
                     class="filter-input"
                     type="number"
                     placeholder="от"
-                    aria-label="Цена от"
                     v-model.number="filters.priceFrom"
                   />
                   <input
                     class="filter-input"
                     type="number"
                     placeholder="до"
-                    aria-label="Цена до"
                     v-model.number="filters.priceTo"
                   />
                 </div>
               </th>
               <th>
-                <select
-                  class="filter-select"
-                  aria-label="Изменение"
-                  v-model="filters.change"
-                >
+                <select class="filter-select" v-model="filters.change">
                   <option value="">Любое</option>
                   <option value="up">Рост</option>
                   <option value="down">Падение</option>
@@ -315,7 +309,6 @@ async function deleteInstrument() {
                   v-model="filters.updatedDate"
                   class="filter-input"
                   type="date"
-                  aria-label="Дата обновления"
                 />
               </th>
               <th></th>
@@ -380,7 +373,6 @@ async function deleteInstrument() {
                     <button
                       class="btn btn-ghost btn-sm"
                       type="button"
-                      aria-label="Изменить"
                       @click="openEdit(instrument)"
                     >
                       <AppIcon name="edit" />
@@ -388,7 +380,6 @@ async function deleteInstrument() {
                     <button
                       class="btn btn-ghost btn-sm"
                       type="button"
-                      aria-label="Удалить"
                       @click="deletingInstrument = instrument"
                     >
                       <AppIcon name="trash" />

@@ -36,7 +36,8 @@ async function download(format) {
       /filename="?([^";]+)"?/i,
     )?.[1];
     link.href = downloadUrl;
-    link.download = filename ?? `export.${format === "excel" ? "xlsx" : "docx"}`;
+    link.download =
+      filename ?? `export.${format === "excel" ? "xlsx" : "docx"}`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -74,7 +75,7 @@ async function download(format) {
       <AppIcon name="download" />
       Word
     </button>
-    <span v-if="exportError" class="form-error-text" role="alert">
+    <span v-if="exportError" class="form-error-text">
       {{ exportError }}
     </span>
   </div>

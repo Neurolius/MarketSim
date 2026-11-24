@@ -48,15 +48,16 @@ const historyFilters = ref({
 
 async function loadInstrument() {
   const id = route.params.id;
-  const [instrument, types, portfolios, chartHistory, stats] = await Promise.all([
-    axios.get(`/api/instrument/${id}/`, { params: { period: "day" } }),
-    axios.get("/api/instrumenttype/", { params: { page_size: 100 } }),
-    axios.get("/api/portfolio/", { params: { page_size: 100 } }),
-    axios.get("/api/pricehistory/", {
-      params: { instrument: id, page: 1, page_size: 100 },
-    }),
-    axios.get("/api/pricehistory/stats/", { params: { instrument: id } }),
-  ]);
+  const [instrument, types, portfolios, chartHistory, stats] =
+    await Promise.all([
+      axios.get(`/api/instrument/${id}/`, { params: { period: "day" } }),
+      axios.get("/api/instrumenttype/", { params: { page_size: 100 } }),
+      axios.get("/api/portfolio/", { params: { page_size: 100 } }),
+      axios.get("/api/pricehistory/", {
+        params: { instrument: id, page: 1, page_size: 100 },
+      }),
+      axios.get("/api/pricehistory/stats/", { params: { instrument: id } }),
+    ]);
   const instrumentTypes = listResults(types.data);
   instrumentTrade.value = mapInstrument(instrument.data, byId(instrumentTypes));
   portfolioList.value = listResults(portfolios.data);
@@ -423,13 +424,11 @@ watch(positionPage, loadPositions);
                       v-model="historyFilters.dateFrom"
                       class="filter-input"
                       type="date"
-                      aria-label="С даты"
                     />
                     <input
                       v-model="historyFilters.dateTo"
                       class="filter-input"
                       type="date"
-                      aria-label="По дату"
                     />
                   </div>
                 </th>
@@ -440,14 +439,12 @@ watch(positionPage, loadPositions);
                       class="filter-input"
                       type="number"
                       placeholder="от"
-                      aria-label="Цена от"
                     />
                     <input
                       v-model.number="historyFilters.priceTo"
                       class="filter-input"
                       type="number"
                       placeholder="до"
-                      aria-label="Цена до"
                     />
                   </div>
                 </th>

@@ -158,7 +158,7 @@ async function confirmDelete() {
       />
     </section>
 
-    <div v-if="errorMessage" class="alert alert-error" role="alert">
+    <div v-if="errorMessage" class="alert alert-error">
       <AppIcon name="alert" />
       <span>{{ errorMessage }}</span>
     </div>
@@ -193,7 +193,6 @@ async function confirmDelete() {
                   class="filter-input"
                   type="number"
                   placeholder="ID"
-                  aria-label="ID"
                   v-model.number="filters.id"
                 />
               </th>
@@ -202,7 +201,6 @@ async function confirmDelete() {
                   class="filter-input"
                   type="search"
                   placeholder="Название"
-                  aria-label="Название"
                   v-model="filters.name"
                 />
               </th>
@@ -212,14 +210,12 @@ async function confirmDelete() {
                     class="filter-input"
                     type="number"
                     placeholder="от"
-                    aria-label="Инструментов от"
                     v-model.number="filters.countFrom"
                   />
                   <input
                     class="filter-input"
                     type="number"
                     placeholder="до"
-                    aria-label="Инструментов до"
                     v-model.number="filters.countTo"
                   />
                 </div>

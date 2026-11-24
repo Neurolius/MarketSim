@@ -99,11 +99,7 @@ defineExpose({
 
       <div class="form-field">
         <span class="form-label">Тип исполнения</span>
-        <div
-          class="segmented segmented-block"
-          role="group"
-          aria-label="Тип исполнения"
-        >
+        <div class="segmented segmented-block">
           <button
             class="segmented-btn"
             :class="{ 'is-active': !isLimit }"
@@ -193,7 +189,7 @@ defineExpose({
         </div>
       </div>
 
-      <div v-if="error || notEnough" class="alert alert-error" role="alert">
+      <div v-if="error || notEnough" class="alert alert-error">
         <AppIcon name="alert" />
         <span>{{ error || "Недостаточно средств в портфеле" }}</span>
       </div>

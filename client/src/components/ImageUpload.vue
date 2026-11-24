@@ -42,7 +42,6 @@ defineEmits(["change", "open-preview"]);
       class="image-upload-preview"
       :class="{ 'is-round': round }"
       type="button"
-      aria-label="Открыть изображение"
       @click="$emit('open-preview')"
     >
       <img v-if="previewUrl" :src="previewUrl" alt="" />
@@ -60,7 +59,6 @@ defineEmits(["change", "open-preview"]);
       :id="id"
       class="visually-hidden"
       type="file"
-      accept="image/*"
       @change="$emit('change', $event)"
     />
   </div>

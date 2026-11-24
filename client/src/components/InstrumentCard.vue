@@ -46,7 +46,6 @@ defineProps({
       class="instrument-card-spark"
       viewBox="0 0 72 28"
       preserveAspectRatio="none"
-      aria-hidden="true"
     >
       <polyline
         class="spark-line"

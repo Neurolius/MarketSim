@@ -23,7 +23,6 @@ const selectedIndex = ref(null);
       :key="image.id"
       class="trade-image-thumb"
       type="button"
-      :aria-label="`Открыть ${caption.toLowerCase()}`"
       @click="selectedIndex = index"
     >
       <img :src="image.image" alt="" />

@@ -74,11 +74,8 @@ function onKeydown(event, index) {
       :id="n === 1 ? id : undefined"
       class="code-cell"
       type="text"
-      inputmode="numeric"
       maxlength="1"
-      autocomplete="one-time-code"
       :value="cells[n - 1]"
-      :aria-label="`Цифра ${n}`"
       @input="updateCell(n - 1, $event)"
       @keydown="onKeydown($event, n - 1)"
     />

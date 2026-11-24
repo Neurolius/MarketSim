@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade, Profile
+from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade, Profile, TradeImage
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
@@ -30,3 +30,7 @@ class PriceHistoryAdmin(admin.ModelAdmin):
 @admin.register(Trade)
 class TradeAdmin(admin.ModelAdmin):
     list_display = ('id', 'portfolio', 'instrument', 'order_type', 'status', 'quantity', 'execution_price', 'created_at')
+
+@admin.register(TradeImage)
+class TradeImageAdmin(admin.ModelAdmin):
+    list_display = ('id', 'trade', 'image')

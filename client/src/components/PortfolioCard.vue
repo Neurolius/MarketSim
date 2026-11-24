@@ -38,12 +38,7 @@ defineEmits(["open-cover", "edit", "delete"]);
 
 <template>
   <article class="card portfolio-card">
-    <button
-      class="portfolio-cover"
-      type="button"
-      :aria-label="`Открыть обложку «${portfolio.name}»`"
-      @click="$emit('open-cover')"
-    >
+    <button class="portfolio-cover" type="button" @click="$emit('open-cover')">
       <img v-if="portfolio.cover_image" :src="portfolio.cover_image" alt="" />
       <span v-else class="portfolio-cover-label">обложка</span>
     </button>

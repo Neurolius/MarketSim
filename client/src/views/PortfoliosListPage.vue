@@ -231,7 +231,7 @@ async function confirmDelete() {
       />
     </section>
 
-    <form class="filter-bar" aria-label="Фильтры портфелей" @submit.prevent>
+    <form class="filter-bar" @submit.prevent>
       <div class="form-field">
         <label class="form-label" for="pf-name">Название</label>
         <input
@@ -256,7 +256,6 @@ async function confirmDelete() {
             class="form-input"
             type="number"
             placeholder="до"
-            aria-label="Баланс до"
             v-model.number="filters.balanceTo"
           />
         </div>
@@ -275,7 +274,6 @@ async function confirmDelete() {
             class="form-input"
             type="number"
             placeholder="до"
-            aria-label="Стоимость до"
             v-model.number="filters.valueTo"
           />
         </div>

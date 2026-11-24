@@ -26,19 +26,11 @@ defineEmits(["close", "submit"]);
         :is="form ? 'form' : 'div'"
         class="modal"
         :class="`modal-${size}`"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="title"
         @submit.prevent="$emit('submit')"
       >
         <div v-if="title" class="modal-header">
           <h2 class="modal-title">{{ title }}</h2>
-          <button
-            class="modal-close"
-            type="button"
-            aria-label="Закрыть"
-            @click="$emit('close')"
-          >
+          <button class="modal-close" type="button" @click="$emit('close')">
             <AppIcon name="close" />
           </button>
         </div>

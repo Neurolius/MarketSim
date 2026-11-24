@@ -15,11 +15,7 @@ const totalPages = computed(() =>
 </script>
 
 <template>
-  <nav
-    v-if="totalPages > 1"
-    class="pagination-nav"
-    aria-label="Страницы списка"
-  >
+  <nav v-if="totalPages > 1" class="pagination-nav">
     <button
       class="btn btn-secondary btn-sm"
       type="button"

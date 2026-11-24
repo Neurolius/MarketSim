@@ -91,7 +91,12 @@ watch(leadersPeriod, fetchLeaders);
             v-for="portfolio in visiblePortfolios"
             :key="portfolio.id"
             :portfolio="portfolio"
-            :value="formatPrice(Number(portfolio.balance) + Number(portfolio.positions_value ?? 0))"
+            :value="
+              formatPrice(
+                Number(portfolio.balance) +
+                  Number(portfolio.positions_value ?? 0),
+              )
+            "
             :positionsCount="portfolio.positions_count ?? 0"
           />
         </div>
@@ -147,7 +152,7 @@ watch(leadersPeriod, fetchLeaders);
       <section class="card">
         <div class="card-header">
           <h2 class="card-title">Лидеры роста</h2>
-          <div class="segmented" role="group" aria-label="Период">
+          <div class="segmented">
             <button
               class="segmented-btn"
               :class="{ 'is-active': leadersPeriod === 'day' }"
