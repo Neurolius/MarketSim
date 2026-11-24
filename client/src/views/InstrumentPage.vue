@@ -286,7 +286,6 @@ watch(positionPage, loadPositions);
             :labels="chartLabels"
             :prices="chartPrices"
             :is-up="(chartStats?.change ?? 0) >= 0"
-            large
           />
         </div>
         <div v-if="chartStats" class="chart-meta">

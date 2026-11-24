@@ -25,7 +25,6 @@ const props = defineProps({
   labels: { type: Array, default: () => [] },
   prices: { type: Array, default: () => [] },
   isUp: { type: Boolean, default: true },
-  large: { type: Boolean, default: false },
 });
 
 const lineColor = computed(() => (props.isUp ? "#067a45" : "#c41f28"));
@@ -74,7 +73,7 @@ const chartOptions = {
 </script>
 
 <template>
-  <div class="chart-box" :class="{ 'chart-box-lg': large }">
+  <div class="chart-box">
     <div v-if="prices.length < 2" class="chart-placeholder">
       Нет данных за выбранный период
     </div>
@@ -85,11 +84,7 @@ const chartOptions = {
 <style scoped>
 .chart-box {
   position: relative;
-  height: 240px;
-}
-
-.chart-box-lg {
-  height: 340px;
+  height: 488px;
 }
 
 .chart-placeholder {
