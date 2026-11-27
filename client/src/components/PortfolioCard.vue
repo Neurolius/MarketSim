@@ -27,10 +27,6 @@ defineProps({
     type: String,
     default: "—",
   },
-  owner: {
-    type: String,
-    default: null,
-  },
 });
 
 defineEmits(["open-cover", "edit", "delete"]);
@@ -74,12 +70,6 @@ defineEmits(["open-cover", "edit", "delete"]);
           <div class="num" :class="isUp ? 'text-up' : 'text-down'">
             {{ profit }}
           </div>
-        </div>
-        <div v-if="owner">
-          <div class="meta-label">
-            Владелец <span class="admin-only-tag">админ</span>
-          </div>
-          <div>{{ owner }}</div>
         </div>
       </div>
     </div>

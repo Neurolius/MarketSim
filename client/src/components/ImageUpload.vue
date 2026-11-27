@@ -1,18 +1,15 @@
 <script setup>
+import { ref, watch } from "vue";
 import AppIcon from "@/components/AppIcon.vue";
 
-defineProps({
+const props = defineProps({
   id: {
     type: String,
     required: true,
   },
-  previewUrl: {
-    type: String,
+  modelValue: {
+    type: Object,
     default: null,
-  },
-  round: {
-    type: Boolean,
-    default: false,
   },
   icon: {
     type: String,
@@ -32,79 +29,55 @@ defineProps({
   },
 });
 
-defineEmits(["change", "open-preview"]);
+const emit = defineEmits(["update:modelValue"]);
+const input = ref(null);
+
+watch(
+  () => props.modelValue,
+  (file) => {
+    if (!file && input.value) input.value.value = "";
+  },
+);
+
+function onChange(event) {
+  emit("update:modelValue", event.target.files[0] ?? null);
+}
+
+function onDrop(event) {
+  emit("update:modelValue", event.dataTransfer.files[0] ?? null);
+}
 </script>
 
 <template>
   <div class="image-upload">
-    <button
-      v-if="previewUrl !== null"
-      class="image-upload-preview"
-      :class="{ 'is-round': round }"
-      type="button"
-      @click="$emit('open-preview')"
+    <label
+      class="image-upload-dropzone"
+      :for="id"
+      @dragover.prevent
+      @drop.prevent="onDrop"
     >
-      <img v-if="previewUrl" :src="previewUrl" alt="" />
-      <span v-else>превью</span>
-    </button>
-    <label class="image-upload-dropzone" :for="id">
       <AppIcon v-if="icon" :name="icon" large />
       <span>
         <strong>{{ actionText }}</strong>
         {{ text }}
       </span>
       <span v-if="hint" class="text-xs">{{ hint }}</span>
+      <span v-if="modelValue" class="text-xs">
+        Выбрано изображений: 1 ({{ modelValue.name }})
+      </span>
     </label>
     <input
+      ref="input"
       :id="id"
       class="visually-hidden"
       type="file"
-      @change="$emit('change', $event)"
+      @change="onChange"
     />
   </div>
 </template>
 
 <style scoped>
-.image-upload {
-  display: flex;
-  gap: var(--space-4);
-  align-items: stretch;
-}
-
-.image-upload-preview {
-  width: 160px;
-  height: 104px;
-  flex: none;
-  padding: 0;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: repeating-linear-gradient(
-    135deg,
-    #e3e8f0 0 10px,
-    #d9dfe9 10px 20px
-  );
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  cursor: zoom-in;
-}
-
-.image-upload-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.image-upload-preview.is-round {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-}
-
 .image-upload-dropzone {
-  flex: 1;
   min-height: 104px;
   display: flex;
   flex-direction: column;
@@ -128,11 +101,5 @@ defineEmits(["change", "open-preview"]);
 
 .image-upload-dropzone strong {
   color: var(--color-accent);
-}
-
-@media (max-width: 760px) {
-  .image-upload {
-    flex-direction: column;
-  }
 }
 </style>

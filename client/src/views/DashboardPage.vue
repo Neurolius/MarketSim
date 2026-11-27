@@ -7,7 +7,6 @@ import EmptyState from "@/components/EmptyState.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import axios from "axios";
 import { computed, onBeforeMount, ref, watch } from "vue";
-import { mapInstrument } from "@/utils/InstrumentsMapper.js";
 import { formatPrice } from "@/utils/format.js";
 import { listResults } from "@/utils/lists";
 import PaginationControls from "@/components/PaginationControls.vue";
@@ -29,7 +28,7 @@ async function fetchLeaders() {
   const { data } = await axios.get("/api/instrument/leaders/", {
     params: { period: leadersPeriod.value },
   });
-  leaders.value = data.map((item) => mapInstrument(item, {}));
+  leaders.value = data;
 }
 
 async function loadPortfolios() {
@@ -66,10 +65,10 @@ watch(leadersPeriod, fetchLeaders);
         <p class="page-subtitle">Сводка по всем портфелям</p>
       </div>
       <div class="page-actions">
-        <router-link :to="{ name: 'instruments' }" class="btn btn-secondary">
+        <router-link :to="'instruments'" class="btn btn-secondary">
           Все инструменты
         </router-link>
-        <router-link :to="{ name: 'instruments' }" class="btn btn-primary">
+        <router-link :to="'instruments'" class="btn btn-primary">
           <AppIcon name="plus" />
           Новая сделка
         </router-link>
@@ -80,7 +79,7 @@ watch(leadersPeriod, fetchLeaders);
       <section class="card">
         <div class="card-header">
           <h2 class="card-title">Портфели</h2>
-          <router-link :to="{ name: 'portfolios' }" class="text-sm"
+          <router-link :to="'portfolios'" class="text-sm"
             >Все портфели</router-link
           >
         </div>
@@ -89,12 +88,7 @@ watch(leadersPeriod, fetchLeaders);
             v-for="portfolio in portfoliosList"
             :key="portfolio.id"
             :portfolio="portfolio"
-            :value="
-              formatPrice(
-                Number(portfolio.balance) +
-                  Number(portfolio.positions_value ?? 0),
-              )
-            "
+            :value="formatPrice(portfolio.total_value)"
             :positionsCount="portfolio.positions_count ?? 0"
           />
         </div>
@@ -110,7 +104,7 @@ watch(leadersPeriod, fetchLeaders);
           title="Портфелей пока нет"
           text="Создайте первый портфель, задайте стартовый баланс и начните торговать."
         >
-          <router-link :to="{ name: 'portfolios' }" class="btn btn-secondary">
+          <router-link :to="'portfolios'" class="btn btn-secondary">
             Создать портфель
           </router-link>
         </EmptyState>
@@ -124,9 +118,7 @@ watch(leadersPeriod, fetchLeaders);
       <section class="card">
         <div class="card-header">
           <h2 class="card-title">Последние сделки</h2>
-          <router-link :to="{ name: 'profile' }" class="text-sm"
-            >Вся история</router-link
-          >
+          <router-link :to="'profile'" class="text-sm">Вся история</router-link>
         </div>
         <div v-if="tradeList.length" class="trade-list">
           <TradeCard
@@ -142,7 +134,7 @@ watch(leadersPeriod, fetchLeaders);
           title="Сделок ещё не было"
           text="Купите инструмент из каталога — сделка появится здесь."
         >
-          <router-link :to="{ name: 'instruments' }" class="btn btn-secondary">
+          <router-link :to="'instruments'" class="btn btn-secondary">
             Открыть каталог
           </router-link>
         </EmptyState>
@@ -175,8 +167,6 @@ watch(leadersPeriod, fetchLeaders);
             :key="instrument.id"
             :instrument="instrument"
             :rank="index + 1"
-            :change="instrument.change"
-            :is-up="instrument.isUp"
           />
         </div>
         <div class="card-footer">
@@ -184,7 +174,7 @@ watch(leadersPeriod, fetchLeaders);
             >По изменению цены за
             {{ leadersPeriod === "day" ? "день" : "неделю" }}</span
           >
-          <router-link :to="{ name: 'instruments' }">Каталог →</router-link>
+          <router-link :to="'instruments'">В каталог</router-link>
         </div>
       </section>
     </div>

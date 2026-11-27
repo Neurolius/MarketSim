@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import axios from "axios";
 import AppIcon from "@/components/AppIcon.vue";
-import { errorText } from "@/utils/requestFormatter";
+import { errorText } from "@/utils/apiHelper";
 
 const props = defineProps({
   small: {
@@ -22,12 +22,12 @@ const props = defineProps({
 const isExporting = ref(false);
 const exportError = ref("");
 
-async function download(format) {
+async function downloadExcel() {
   isExporting.value = true;
   exportError.value = "";
   try {
     const { data, headers } = await axios.get(props.url, {
-      params: { ...props.params, export_format: format },
+      params: props.params,
       responseType: "blob",
     });
     const downloadUrl = URL.createObjectURL(data);
@@ -36,8 +36,7 @@ async function download(format) {
       /filename="?([^";]+)"?/i,
     )?.[1];
     link.href = downloadUrl;
-    link.download =
-      filename ?? `export.${format === "excel" ? "xlsx" : "docx"}`;
+    link.download = filename ?? "export.xlsx";
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -60,20 +59,10 @@ async function download(format) {
       :class="{ 'btn-sm': small }"
       type="button"
       :disabled="isExporting"
-      @click="download('excel')"
+      @click="downloadExcel"
     >
       <AppIcon name="download" />
       Excel
-    </button>
-    <button
-      class="btn btn-secondary"
-      :class="{ 'btn-sm': small }"
-      type="button"
-      :disabled="isExporting"
-      @click="download('word')"
-    >
-      <AppIcon name="download" />
-      Word
     </button>
     <span v-if="exportError" class="form-error-text">
       {{ exportError }}

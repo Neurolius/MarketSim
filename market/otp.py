@@ -1,27 +1,25 @@
-from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.permissions import BasePermission
 
 
-OTP_VALIDITY_SECONDS = 10 * 60
+OTP_VALIDITY_SECONDS = 60 * 60
 
 
-def otp_cache_key(user_id, session_key):
-    return f"otp_good:{user_id}:{session_key}"
+def get_otp_expiration(request):
+    confirmation = request.session.get("otp")
+    if not confirmation or confirmation["user_id"] != request.user.pk:
+        return None
 
-
-def get_session_otp_key(request):
-    if not request.session.session_key:
-        request.session.create()
-    return otp_cache_key(request.user.pk, request.session.session_key)
+    expires_at = confirmation["expires_at"]
+    if expires_at > timezone.now().timestamp():
+        return expires_at
+    return None
 
 
 class OTPRequired(BasePermission):
-    message = "Подтвердите двухфакторную аутентификацию в профиле. Подтверждение действует 10 минут."
+    message = F"Подтвердите двухфакторную аутентификацию в профиле. Подтверждение действует {OTP_VALIDITY_SECONDS} минут."
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-
-        expires_at = cache.get(get_session_otp_key(request), 0)
-        return expires_at > timezone.now().timestamp()
+        return get_otp_expiration(request) is not None

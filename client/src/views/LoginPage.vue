@@ -18,7 +18,7 @@ async function handleLogin() {
   try {
     await profileStore.login(username.value, password.value);
     if (isAuthenticated.value) {
-      router.push({ name: "dashboard" });
+      router.push("/dashboard");
     }
   } catch (error) {
     if (error.response && error.response.status === 403) {
@@ -78,7 +78,7 @@ async function handleLogin() {
 
       <p class="auth-footer">
         Нет аккаунта?
-        <router-link :to="{ name: 'register' }">Зарегистрироваться</router-link>
+        <router-link :to="'register'">Зарегистрироваться</router-link>
       </p>
     </form>
   </div>

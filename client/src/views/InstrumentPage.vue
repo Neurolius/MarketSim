@@ -17,7 +17,7 @@ import {
   formatSigned,
   formatDate,
 } from "@/utils/format";
-import { toFormData, errorText } from "@/utils/requestFormatter";
+import { toFormData, errorText } from "@/utils/apiHelper";
 import { byId, listResults } from "@/utils/lists";
 import { calcPosition } from "@/utils/positions";
 import PaginationControls from "@/components/PaginationControls.vue";
@@ -46,18 +46,15 @@ const historyFilters = ref({
 
 async function loadInstrument() {
   const id = route.params.id;
-  const [instrument, types, portfolios, chartHistory, stats] =
-    await Promise.all([
-      axios.get(`/api/instrument/${id}/`, { params: { period: "day" } }),
-      axios.get("/api/instrumenttype/", { params: { page_size: 100 } }),
-      axios.get("/api/portfolio/", { params: { page_size: 100 } }),
-      axios.get("/api/pricehistory/", {
-        params: { instrument: id, page: 1, page_size: 100 },
-      }),
-      axios.get("/api/pricehistory/stats/", { params: { instrument: id } }),
-    ]);
-  const instrumentTypes = listResults(types.data);
-  instrumentTrade.value = mapInstrument(instrument.data, byId(instrumentTypes));
+  const [instrument, portfolios, chartHistory, stats] = await Promise.all([
+    axios.get(`/api/instrument/${id}/`, { params: { period: "day" } }),
+    axios.get("/api/portfolio/", { params: { page_size: 100 } }),
+    axios.get("/api/pricehistory/", {
+      params: { instrument: id, page: 1, page_size: 100 },
+    }),
+    axios.get("/api/pricehistory/stats/", { params: { instrument: id } }),
+  ]);
+  instrumentTrade.value = mapInstrument(instrument.data);
   portfolioList.value = listResults(portfolios.data);
   chartHistoryList.value = listResults(chartHistory.data);
   historyStats.value = stats.data.count ? stats.data : null;
@@ -478,7 +475,7 @@ watch(positionPage, loadPositions);
 
   <ImageModal
     v-if="isLogoModalOpen"
-    :src="instrumentTrade.logo ?? ''"
+    :images="[{ image: instrumentTrade.logo ?? '' }]"
     :caption="`Логотип ${instrumentTrade.ticker}`"
     @close="isLogoModalOpen = false"
   />

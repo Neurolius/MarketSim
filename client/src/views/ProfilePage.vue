@@ -67,8 +67,6 @@ onBeforeMount(async () => {
 const tradeRows = computed(() => {
   return tradeList.value.map((t) => {
     const unitPrice = t.execution_price ?? t.price;
-    const rawTotal =
-      unitPrice != null ? Number(t.quantity) * Number(unitPrice) : null;
     return {
       ...t,
       portfolioName: t.portfolio_name ?? "—",
@@ -76,7 +74,7 @@ const tradeRows = computed(() => {
       executedText: formatDate(t.executed_at),
       quantityText: formatQuantity(t.quantity),
       priceText: unitPrice != null ? `${formatPrice(unitPrice)} ₽` : "—",
-      totalText: rawTotal != null ? `${formatPrice(rawTotal)} ₽` : "—",
+      totalText: unitPrice != null ? `${formatPrice(t.total_amount)} ₽` : "—",
     };
   });
 });

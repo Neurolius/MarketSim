@@ -11,8 +11,8 @@ import axios from "axios";
 import { mapInstrument } from "@/utils/InstrumentsMapper";
 import ConfirmDeleteModal from "@/components/modals/ConfirmDeleteModal.vue";
 import { formatCompact } from "@/utils/format";
-import { toFormData, errorText } from "@/utils/requestFormatter";
-import { byId, listResults } from "@/utils/lists";
+import { toFormData, errorText } from "@/utils/apiHelper";
+import { listResults } from "@/utils/lists";
 import PaginationControls from "@/components/PaginationControls.vue";
 
 const profileStore = useProfileStore();
@@ -68,9 +68,7 @@ async function loadInstruments() {
   const rawTypes = listResults(types.data);
   totalCount.value = instruments.data.count ?? rawInstruments.length;
   stats.value = statsResponse.data;
-  instrumentsList.value = rawInstruments.map((item) =>
-    mapInstrument(item, byId(rawTypes)),
-  );
+  instrumentsList.value = rawInstruments.map((item) => mapInstrument(item));
   typesList.value = rawTypes;
 }
 
@@ -313,10 +311,7 @@ async function deleteInstrument() {
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="instrument in instrumentsList"
-              :key="instrument.id"
-            >
+            <tr v-for="instrument in instrumentsList" :key="instrument.id">
               <td>
                 <div class="cell-instrument">
                   <InstrumentLogo
@@ -395,10 +390,7 @@ async function deleteInstrument() {
         </table>
       </div>
       <div class="table-footer">
-        <span
-          >Показано {{ instrumentsList.length }} из
-          {{ totalCount }}</span
-        >
+        <span>Показано {{ instrumentsList.length }} из {{ totalCount }}</span>
       </div>
       <PaginationControls
         v-model:page="page"

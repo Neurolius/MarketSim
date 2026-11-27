@@ -3,7 +3,6 @@ import { computed, ref } from "vue";
 import AppIcon from "@/components/AppIcon.vue";
 import BaseModal from "@/components/BaseModal.vue";
 import ImageUpload from "@/components/ImageUpload.vue";
-import { useImagePreview } from "@/composables/useImagePreview";
 
 const props = defineProps({
   portfolio: { type: Object, default: null },
@@ -15,11 +14,7 @@ const emit = defineEmits(["close", "submit"]);
 const name = ref(props.portfolio?.name ?? "");
 const balance = ref(100000);
 
-const {
-  file: coverFile,
-  preview: coverPreview,
-  onFileChange: onCoverChange,
-} = useImagePreview(props.portfolio?.cover_image);
+const coverFile = ref(null);
 
 const canSubmit = computed(
   () =>
@@ -73,10 +68,9 @@ function submit() {
       <span class="form-label">Обложка</span>
       <ImageUpload
         id="portfolio-cover"
-        :preview-url="coverPreview"
-        :action-text="coverPreview ? 'Заменить файл' : 'Выберите файл'"
+        v-model="coverFile"
+        :action-text="portfolio?.cover_image ? 'Заменить файл' : 'Выберите файл'"
         text="или перетащите"
-        @change="onCoverChange"
       />
     </div>
 
@@ -86,7 +80,7 @@ function submit() {
     </div>
 
     <template #footer>
-      <button class="btn btn-primary" type="submit" :disabled="!canSubmit">
+      <button class="btn btn-secondary" type="button" @click="$emit('close')">
         Отмена
       </button>
       <button class="btn btn-primary" type="submit">

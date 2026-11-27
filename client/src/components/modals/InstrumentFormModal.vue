@@ -3,7 +3,6 @@ import { computed, ref } from "vue";
 import AppIcon from "@/components/AppIcon.vue";
 import BaseModal from "@/components/BaseModal.vue";
 import ImageUpload from "@/components/ImageUpload.vue";
-import { useImagePreview } from "@/composables/useImagePreview";
 
 const props = defineProps({
   instrument: { type: Object, default: null },
@@ -20,11 +19,7 @@ const typeId = ref(
 );
 const price = ref(props.instrument?.rawPrice ?? null);
 
-const {
-  file: logoFile,
-  preview: logoPreview,
-  onFileChange: onLogoChange,
-} = useImagePreview(props.instrument?.logo);
+const logoFile = ref(null);
 
 const canSubmit = computed(
   () =>
@@ -105,12 +100,9 @@ function submit() {
       <span class="form-label">Логотип</span>
       <ImageUpload
         id="instrument-logo"
-        :preview-url="logoPreview"
-        round
-        :icon="''"
-        text=""
+        v-model="logoFile"
+        :action-text="instrument?.logo ? 'Заменить файл' : 'Выберите файл'"
         hint="Квадратное изображение"
-        @change="onLogoChange"
       />
     </div>
 

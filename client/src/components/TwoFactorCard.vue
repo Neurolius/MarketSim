@@ -3,7 +3,7 @@ import { computed, onBeforeMount, ref } from "vue";
 import axios from "axios";
 import AppIcon from "@/components/AppIcon.vue";
 import CodeInput from "@/components/CodeInput.vue";
-import { errorText } from "@/utils/requestFormatter";
+import { errorText } from "@/utils/apiHelper";
 
 const secret = ref("");
 const code = ref("");

@@ -1,37 +1,53 @@
 <script setup>
-import { useRouter } from 'vue-router'
-import useProfileStore from '@/stores/profileStore'
-import AppIcon from '@/components/AppIcon.vue'
+import { useRouter } from "vue-router";
+import useProfileStore from "@/stores/profileStore";
+import AppIcon from "@/components/AppIcon.vue";
 
-const router = useRouter()
-const profileStore = useProfileStore()
-const username = profileStore.userName
+const router = useRouter();
+const profileStore = useProfileStore();
+const username = profileStore.userName;
 
 async function handleExit() {
-  await profileStore.logout()
-  router.push({ name: 'login' })
+  await profileStore.logout();
+  router.push({ name: "login" });
 }
 </script>
 
 <template>
   <header class="header-navbar">
     <div class="navbar-inner">
-      <router-link :to="{ name: 'dashboard' }" class="navbar-brand">
+      <router-link :to="'dashboard'" class="navbar-brand">
         <span class="navbar-logo">MS</span>
         <span>MarketSim</span>
       </router-link>
 
       <nav class="navbar-links" aria-label="Основная навигация">
-        <router-link :to="{ name: 'dashboard' }" class="navbar-link" active-class="is-active">
+        <router-link
+          :to="{ name: 'dashboard' }"
+          class="navbar-link"
+          active-class="is-active"
+        >
           Дашборд
         </router-link>
-        <router-link :to="{ name: 'instruments' }" class="navbar-link" active-class="is-active">
+        <router-link
+          :to="{ name: 'instruments' }"
+          class="navbar-link"
+          active-class="is-active"
+        >
           Инструменты
         </router-link>
-        <router-link :to="{ name: 'portfolios' }" class="navbar-link" active-class="is-active">
+        <router-link
+          :to="{ name: 'portfolios' }"
+          class="navbar-link"
+          active-class="is-active"
+        >
           Портфели
         </router-link>
-        <router-link :to="{ name: 'profile' }" class="navbar-link" active-class="is-active">
+        <router-link
+          :to="{ name: 'profile' }"
+          class="navbar-link"
+          active-class="is-active"
+        >
           Профиль
         </router-link>
         <router-link
@@ -45,7 +61,11 @@ async function handleExit() {
       </nav>
 
       <div class="navbar-user">
-        <a v-if="profileStore.isSuperuser" class="navbar-admin-btn" href="/admin">
+        <a
+          v-if="profileStore.isSuperuser"
+          class="navbar-admin-btn"
+          href="/admin"
+        >
           <AppIcon name="shield" />
           Админ-панель
         </a>

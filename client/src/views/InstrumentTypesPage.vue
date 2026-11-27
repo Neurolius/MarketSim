@@ -1,8 +1,7 @@
 <script setup>
 import { computed, onBeforeMount, ref, watch } from "vue";
 import axios from "axios";
-import { toFormData, errorText } from "@/utils/requestFormatter";
-import { listResults } from "@/utils/lists";
+import { errorText } from "@/utils/apiHelper";
 import HeaderNavbar from "@/components/HeaderNavbar.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import StatCard from "@/components/StatCard.vue";
@@ -48,8 +47,8 @@ async function loadTypes() {
     axios.get("/api/instrumenttype/", { params }),
     axios.get("/api/instrumenttype/stats/"),
   ]);
-  typesList.value = listResults(r.data);
-  totalCount.value = r.data.count ?? typesList.value.length;
+  typesList.value = r.data.results;
+  totalCount.value = r.data.count;
   globalStats.value = stats.data;
 }
 
@@ -93,8 +92,8 @@ async function saveType(data) {
   isSaving.value = true;
   try {
     const id = formType.value.id;
-    if (id) await axios.patch(`/api/instrumenttype/${id}/`, toFormData(data));
-    else await axios.post("/api/instrumenttype/", toFormData(data));
+    if (id) await axios.patch(`/api/instrumenttype/${id}/`, data);
+    else await axios.post("/api/instrumenttype/", data);
     formType.value = null;
     if (!id && page.value !== 1) page.value = 1;
     else await loadTypes();

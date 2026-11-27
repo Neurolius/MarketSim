@@ -22,7 +22,7 @@ async function handleRegister() {
 
   try {
     await profileStore.register(username.value, password.value, email.value);
-    router.push({ name: "dashboard" });
+    router.push("dashboard");
   } catch (error) {
     errorMessage.value =
       error.response?.data?.detail ||
@@ -105,7 +105,7 @@ async function handleRegister() {
 
       <p class="auth-footer">
         Уже есть аккаунт?
-        <router-link :to="{ name: 'login' }">Войти</router-link>
+        <router-link :to="'login'">Войти</router-link>
       </p>
     </form>
   </div>

@@ -1,13 +1,10 @@
-from rest_framework.viewsets import GenericViewSet, mixins
-
 from market import service
 from market.exceptions import TradeException
 from market.exports import export_response
 from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade, Profile
 from market.serializers import InstrumentTypeSerializer, InstrumentSerializer, PortfolioSerializer, PositionSerializer, PriceHistorySerializer, TradeSerializer, TradeUpdateSerializer
 
-from rest_framework.viewsets import GenericViewSet
-from rest_framework import mixins
+from rest_framework.viewsets import GenericViewSet, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -18,13 +15,12 @@ from django.contrib.auth import authenticate
 
 from datetime import datetime, timedelta
 import pyotp
-from django.core.cache import cache
 from django.db.models import (
     Avg, Case, Count,
-    DecimalField, ExpressionWrapper,
+    DecimalField,
     F, FloatField, Min,
     Max, OuterRef, Q,
-    Subquery, Sum, Value,
+    Subquery, Sum,
     When,
 )
 from django.db.models.functions import Coalesce
@@ -35,79 +31,54 @@ from rest_framework import serializers
 
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
-from market.otp import OTPRequired, OTP_VALIDITY_SECONDS, get_session_otp_key
+from market.otp import OTPRequired, OTP_VALIDITY_SECONDS, get_otp_expiration
+
+from statistics import median
+from decimal import Decimal
 
 class StandardPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = "page_size"
     max_page_size = 100
 
-
-def apply_query_filters(queryset, query_params, filters):
-    for param, lookup in filters:
-        value = query_params.get(param)
-        if value:
-            queryset = queryset.filter(**{lookup: value})
-    return queryset
-
-
-def get_admin_permissions(action, read_actions):
-    if action in read_actions:
-        return [IsAuthenticated()]
-    return [IsAdminUser(), OTPRequired()]
-
-
-def get_otp_permissions(action, protected_actions):
-    permissions = [IsAuthenticated()]
-    if action in protected_actions:
-        permissions.append(OTPRequired())
-    return permissions
-
-
 class OTPSerializer(serializers.Serializer):
     key = serializers.RegexField(regex=r"^\d{6}$")
 
-
 class ProfileViewSet(GenericViewSet):
     queryset = User.objects.all()
-    @action(detail=False, url_path="me", methods=['GET'])
-    def get_me(self, request, *args, **kwargs):
-        data = {
-            'is_authenticated': self.request.user.is_authenticated
-        }
-        if self.request.user.is_authenticated:
-            data.update({
-                "username": self.request.user.username,
-                "id": self.request.user.id,
-                "is_superuser": self.request.user.is_superuser,
-                "email": self.request.user.email,
-                "date_joined": self.request.user.date_joined,
-                "last_login": self.request.user.last_login,
-                "portfolios_count": self.request.user.portfolios.count()
-            })
-        return Response(data=data)
 
-    @action(detail=False, url_path="logout", methods=['POST'])
-    def logout(self, *args, **kwargs):
-        if self.request.user.is_authenticated and self.request.session.session_key:
-            cache.delete(get_session_otp_key(self.request))
-        django_logout(self.request)
+    @action(detail=False, url_path="me", methods=["GET"])
+    def get_me(self, request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({"is_authenticated": False})
+
+        return Response({
+            "is_authenticated": True,
+            "username": user.username,
+            "id": user.id,
+            "is_superuser": user.is_superuser,
+            "email": user.email,
+            "date_joined": user.date_joined,
+            "last_login": user.last_login,
+            "portfolios_count": user.portfolios.count(),
+        })
+
+    @action(detail=False, url_path="logout", methods=["POST"])
+    def logout(self, request, *args, **kwargs):
+        django_logout(request)
         return Response()
 
-    @action(detail=False, url_path="login", methods=['POST'])
-    def login(self, *args, **kwargs):
-        username = self.request.data.get('username')
-        password = self.request.data.get('password')
-        success = False
-        status_code = 403
+    @action(detail=False, url_path="login", methods=["POST"])
+    def login(self, request, *args, **kwargs):
+        username = request.data.get("username")
+        password = request.data.get("password")
         user = authenticate(username=username, password=password)
-        if user:
-            success = True
-            status_code = 200
-            django_login(self.request, user)
-        return Response({
-            'success': success
-        }, status=status_code)
+        if user is None:
+            return Response({"success": False}, status=403)
+
+        django_login(request, user)
+        return Response({"success": True})
 
     @action(detail=False, url_path="register", methods=['POST'])
     def register(self, *args, **kwargs):
@@ -120,12 +91,10 @@ class ProfileViewSet(GenericViewSet):
         if User.objects.filter(username=username).exists():
             return Response({'success': False, 'detail': 'Пользователь уже существует'}, status=400)
 
-        User.objects.create_user(username=username, password=password, email=email)
-        user = authenticate(username=username, password=password)
-        if user:
-            django_login(self.request, user)
-            Portfolio.objects.create(user=user, name='Основной', balance=10000)
-        return Response({'success': True}, status=200)
+        user = User.objects.create_user(username=username, password=password, email=email)
+        django_login(self.request, user)
+        Portfolio.objects.create(user=user, name='Основной', balance=10000)
+        return Response({'success': True}, status=201)
 
     @action(
     detail=False,
@@ -147,15 +116,16 @@ class ProfileViewSet(GenericViewSet):
 
     @action(detail=False, methods=["GET"], url_path="otp-status", permission_classes=[IsAuthenticated])
     def otp_status(self, request):
-        expires_at = cache.get(get_session_otp_key(request), 0)
-        is_confirmed = expires_at > timezone.now().timestamp()
-        active_until = (
-            datetime.fromtimestamp(expires_at, tz=timezone.get_current_timezone()).isoformat()
-            if is_confirmed
-            else None
-        )
+        expires_at = get_otp_expiration(request)
+        active_until = None
+
+        if expires_at is not None:
+            active_until = datetime.fromtimestamp(
+                expires_at, tz=timezone.get_current_timezone()
+            ).isoformat()
+
         return Response({
-            "confirmed": is_confirmed,
+            "confirmed": expires_at is not None,
             "active_until": active_until,
         })
 
@@ -175,11 +145,10 @@ class ProfileViewSet(GenericViewSet):
             profile.save(update_fields=["otp_enabled"])
 
         expires_at = timezone.now() + timedelta(seconds=OTP_VALIDITY_SECONDS)
-        cache.set(
-            get_session_otp_key(request),
-            expires_at.timestamp(),
-            timeout=OTP_VALIDITY_SECONDS,
-        )
+        request.session["otp"] = {
+            "user_id": request.user.pk,
+            "expires_at": expires_at.timestamp(),
+        }
         return Response({
             "success": True,
             "active_until": expires_at.isoformat(),
@@ -196,24 +165,30 @@ class InstrumentTypeViewset(
     queryset = InstrumentType.objects.all().order_by("id")
     serializer_class = InstrumentTypeSerializer
     pagination_class = StandardPagination
+    permission_classes = [IsAdminUser, OTPRequired]
 
     def get_permissions(self):
-        return get_admin_permissions(
-            self.action, ("list", "retrieve", "stats", "export")
-        )
+        if self.action in ("list", "retrieve", "stats", "export"):
+            return [IsAuthenticated()]
+        return super().get_permissions()
     
     def get_queryset(self):
-        qs = super().get_queryset().annotate(instruments_count=Count('instrument'))
-        return apply_query_filters(
-            qs,
-            self.request.query_params,
-            (
-                ("id", "id"),
-                ("name", "name__icontains"),
-                ("count_from", "instruments_count__gte"),
-                ("count_to", "instruments_count__lte"),
-            ),
-        )
+        qs = super().get_queryset().annotate(instruments_count=Count("instrument"))
+        params = self.request.query_params
+        type_id = params.get("id")
+        name = params.get("name")
+        count_from = params.get("count_from")
+        count_to = params.get("count_to")
+        if type_id:
+            qs = qs.filter(id=type_id)
+        if name:
+            qs = qs.filter(name__icontains=name)
+        if count_from:
+            qs = qs.filter(instruments_count__gte=count_from)
+        if count_to:
+            qs = qs.filter(instruments_count__lte=count_to)
+
+        return qs
 
     def perform_destroy(self, instance):
         if instance.instrument_set.exists():
@@ -222,11 +197,9 @@ class InstrumentTypeViewset(
 
     @action(detail=False, methods=["GET"], url_path="stats")
     def stats(self, request):
-        data = InstrumentType.objects.annotate(
-            instruments_count=Count("instrument")
-        ).aggregate(
-            type_count=Count("id"),
-            instrument_count=Sum("instruments_count"),
+        data = InstrumentType.objects.aggregate(
+            type_count=Count("id", distinct=True),
+            instrument_count=Count("instrument"),
         )
         return Response(data)
 
@@ -238,9 +211,7 @@ class InstrumentTypeViewset(
             for item in types
         )
         return export_response(
-            request,
             "instrument_types",
-            "Типы инструментов",
             ["ID", "Название", "Инструментов"],
             rows,
         )
@@ -252,60 +223,56 @@ class InstrumentViewset(
     mixins.ListModelMixin, 
     mixins.DestroyModelMixin,
     GenericViewSet):
-    queryset = Instrument.objects.all().order_by("id")
+    queryset = Instrument.objects.select_related("instrument_type").order_by("id")
     serializer_class = InstrumentSerializer
     pagination_class = StandardPagination
+    permission_classes = [IsAdminUser, OTPRequired]
 
     def get_permissions(self):
-        return get_admin_permissions(
-            self.action, ("list", "retrieve", "stats", "leaders", "export")
-        )
+        if self.action in ("list", "retrieve", "stats", "leaders", "export"):
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_queryset(self):
         qs = super().get_queryset()
+        params = self.request.query_params
 
-        hours = {'day': 24, 'week': 24 * 7}.get(self.request.query_params.get('period'),24)
-        since = timezone.now() - timedelta(hours=hours)
-        history = PriceHistory.objects.filter(instrument=OuterRef('pk'))
-        price_before = history.filter(timestamp__lte=since).order_by('-timestamp').values('price')[:1]
-        first_price = history.order_by('timestamp').values('price')[:1]
-        latest_timestamp = history.order_by('-timestamp').values('timestamp')[:1]
+        days = 7 if params.get("period") == "week" else 1
+        since = timezone.now() - timedelta(days=days)
+
+        history = PriceHistory.objects.filter(instrument_id=OuterRef("pk"))
+        newest_first = history.order_by("-timestamp")
+        price_before_period = newest_first.filter(timestamp__lte=since).values("price")[:1]
+        oldest_price = history.order_by("timestamp").values("price")[:1]
 
         qs = qs.annotate(
-            prev_price=Coalesce(Subquery(price_before), Subquery(first_price)),
-            price_updated_at=Subquery(latest_timestamp),
+            prev_price=Coalesce(Subquery(price_before_period), Subquery(oldest_price)),
+            price_updated_at=Subquery(newest_first.values("timestamp")[:1]),
         )
+
+        change_percent = (F("current_price") - F("prev_price")) * 100.0 / F("prev_price")
         qs = qs.annotate(
             change_percent=Case(
-                When(
-                    prev_price__gt=0,
-                    then=ExpressionWrapper(
-                        (F("current_price") - F("prev_price"))
-                        * Value(100.0)
-                        / F("prev_price"),
-                        output_field=FloatField(),
-                    ),
-                ),
-                default=Value(0.0),
+                When(prev_price__gt=0, then=change_percent),
+                default=0.0,
                 output_field=FloatField(),
             )
         )
 
-        search = self.request.query_params.get("search")
-        change = self.request.query_params.get("change")
+        search = params.get("search")
+        change = params.get("change")
 
         if search:
             qs = qs.filter(Q(ticker__icontains=search) | Q(name__icontains=search))
-        qs = apply_query_filters(
-            qs,
-            self.request.query_params,
-            (
-                ("type", "instrument_type_id"),
-                ("price_from", "current_price__gte"),
-                ("price_to", "current_price__lte"),
-                ("updated_date", "price_updated_at__date"),
-            ),
-        )
+        if params.get("type"):
+            qs = qs.filter(instrument_type_id=params["type"])
+        if params.get("price_from"):
+            qs = qs.filter(current_price__gte=params["price_from"])
+        if params.get("price_to"):
+            qs = qs.filter(current_price__lte=params["price_to"])
+        if params.get("updated_date"):
+            qs = qs.filter(price_updated_at__date=params["updated_date"])
+        
         if change == "up":
             qs = qs.filter(change_percent__gt=0)
         elif change == "down":
@@ -323,24 +290,12 @@ class InstrumentViewset(
             rising_count=Count("id", filter=Q(change_percent__gt=0)),
             falling_count=Count("id", filter=Q(change_percent__lt=0)),
         )
-        prices = [
-            price
-            for _, price in qs.order_by("current_price").values_list("id", "current_price")
-        ]
-        if prices:
-            middle = len(prices) // 2
-            median = (
-                prices[middle]
-                if len(prices) % 2
-                else (prices[middle - 1] + prices[middle]) / 2
-            )
-        else:
-            median = 0
+        prices = list(qs.order_by().values_list("current_price", flat=True))
 
         cheapest = qs.order_by("current_price").values("ticker", "current_price").first()
         priciest = qs.order_by("-current_price").values("ticker", "current_price").first()
         aggregate.update({
-            "median": median,
+            "median": median(prices) if prices else 0,
             "cheapest": cheapest,
             "priciest": priciest,
             "by_type": list(
@@ -372,9 +327,7 @@ class InstrumentViewset(
             for item in instruments.iterator()
         )
         return export_response(
-            request,
             "instruments",
-            "Инструменты",
             ["Тикер", "Название", "Тип", "Цена", "Изменение, %", "Обновлено"],
             rows,
         )
@@ -389,66 +342,57 @@ class PortfolioViewset(
     queryset = Portfolio.objects.all().order_by("id")
     serializer_class = PortfolioSerializer
     pagination_class = StandardPagination
+    permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        return get_otp_permissions(
-            self.action, ("create", "update", "partial_update", "destroy")
-        )
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsAuthenticated(), OTPRequired()]
+        return super().get_permissions()
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if self.request.user.is_superuser:
-            user_id = self.request.query_params.get("user")
-            if user_id:
-                qs = qs.filter(user_id=user_id)
+        user = self.request.user
+        params = self.request.query_params
+
+        if not user.is_superuser:
+            qs = qs.filter(user=user)
+        elif params.get("user"):
+            qs = qs.filter(user_id=params["user"])
+
+        if self.action not in ("list", "export"):
             return qs
-        return qs.filter(user=self.request.user)
 
-    def _list_queryset(self):
-        qs = self.get_queryset().select_related("user").annotate(
+        qs = qs.select_related("user").annotate(
             positions_count=Count("positions", distinct=True),
-            positions_value=Coalesce(
-                Sum(
-                    ExpressionWrapper(
-                        F("positions__quantity") * F("positions__instrument__current_price"),
-                        output_field=DecimalField(max_digits=30, decimal_places=4),
-                    )
-                ),
-                Value(0, output_field=DecimalField(max_digits=30, decimal_places=4)),
+            positions_value=Sum(
+                F("positions__quantity") * F("positions__instrument__current_price"),
+                default=0,
+                output_field=DecimalField(max_digits=30, decimal_places=4),
             ),
-            positions_cost=Coalesce(
-                Sum(
-                    ExpressionWrapper(
-                        F("positions__quantity") * F("positions__average_price"),
-                        output_field=DecimalField(max_digits=30, decimal_places=4),
-                    )
-                ),
-                Value(0, output_field=DecimalField(max_digits=30, decimal_places=4)),
+            positions_cost=Sum(
+                F("positions__quantity") * F("positions__average_price"),
+                default=0,
+                output_field=DecimalField(max_digits=30, decimal_places=4),
             ),
-        ).annotate(total_value=F("balance") + F("positions_value"))
-
-        search = self.request.query_params.get("search")
-        if search:
-            qs = qs.filter(name__icontains=search)
-        return apply_query_filters(
-            qs,
-            self.request.query_params,
-            (
-                ("balance_from", "balance__gte"),
-                ("balance_to", "balance__lte"),
-                ("value_from", "total_value__gte"),
-                ("value_to", "total_value__lte"),
-            ),
+            total_value=F("balance") + F("positions_value"),
         )
 
-    def list(self, request, *args, **kwargs):
-        page = self.paginate_queryset(self._list_queryset())
-        serializer = self.get_serializer(page, many=True)
-        return self.get_paginated_response(serializer.data)
+        if params.get("search"):
+            qs = qs.filter(name__icontains=params["search"])
+        if params.get("balance_from"):
+            qs = qs.filter(balance__gte=params["balance_from"])
+        if params.get("balance_to"):
+            qs = qs.filter(balance__lte=params["balance_to"])
+        if params.get("value_from"):
+            qs = qs.filter(total_value__gte=params["value_from"])
+        if params.get("value_to"):
+            qs = qs.filter(total_value__lte=params["value_to"])
+
+        return qs
 
     @action(detail=False, methods=["GET"], url_path="export")
     def export(self, request):
-        portfolios = self._list_queryset().order_by("id")
+        portfolios = self.get_queryset()
         rows = (
             (
                 item.name,
@@ -463,9 +407,7 @@ class PortfolioViewset(
             for item in portfolios.iterator()
         )
         return export_response(
-            request,
             "portfolios",
-            "Портфели",
             [
                 "Название",
                 "Владелец",
@@ -488,35 +430,25 @@ class PortfolioViewset(
 
         portfolio_data = portfolios.aggregate(
             count=Count("id"),
-            balance=Sum("balance"),
+            balance=Sum("balance", default=0),
         )
 
         positions_data = Position.objects.filter(
             portfolio__in=portfolios
         ).aggregate(
             count=Count("id"),
-            positions_value=Sum(
-                ExpressionWrapper(
-                    F("quantity") * F("instrument__current_price"),
-                    output_field=DecimalField(max_digits=30, decimal_places=4),
-                )
-            ),
-            cost=Sum(
-                ExpressionWrapper(
-                    F("quantity") * F("average_price"),
-                    output_field=DecimalField(max_digits=30, decimal_places=4),
-                )
-            ),
+            positions_value=Sum(F("quantity") * F("instrument__current_price"), default=0),
+            cost=Sum(F("quantity") * F("average_price"), default=0),
         )
 
         trades_data = Trade.objects.filter(portfolio__in=portfolios).aggregate(
             count=Count("id"),
             pending_count=Count("id", filter=Q(status=Trade.Status.pending)),
         )
-        count = portfolio_data["count"] or 0
-        balance = float(portfolio_data["balance"] or 0)
-        positions_value = float(positions_data["positions_value"] or 0)
-        cost = float(positions_data["cost"] or 0)
+        count = portfolio_data["count"]
+        balance = float(portfolio_data["balance"])
+        positions_value = float(positions_data["positions_value"])
+        cost = float(positions_data["cost"])
         total_value = balance + positions_value
         profit = positions_value - cost
 
@@ -538,7 +470,9 @@ class PositionViewset(
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
     GenericViewSet):
-    queryset = Position.objects.select_related('instrument', 'portfolio').order_by("id")
+    queryset = Position.objects.select_related(
+        "instrument__instrument_type", "portfolio"
+    ).order_by("id")
     serializer_class = PositionSerializer
     pagination_class = StandardPagination
 
@@ -547,14 +481,8 @@ class PositionViewset(
         instrument_id = self.request.query_params.get('instrument')
         portfolio_id = self.request.query_params.get('portfolio')
         qs = qs.annotate(
-            position_value=ExpressionWrapper(
-                F("quantity") * F("instrument__current_price"),
-                output_field=DecimalField(max_digits=30, decimal_places=4),
-            ),
-            position_profit=ExpressionWrapper(
-                F("quantity") * (F("instrument__current_price") - F("average_price")),
-                output_field=DecimalField(max_digits=30, decimal_places=4),
-            ),
+            position_value=F("quantity") * F("instrument__current_price"),
+            position_profit=F("quantity") * (F("instrument__current_price") - F("average_price")),
         )
         if portfolio_id:
             qs = qs.filter(portfolio_id=portfolio_id)
@@ -567,23 +495,22 @@ class PositionViewset(
         else:
             qs = qs.filter(portfolio__user=self.request.user)
 
-        ticker = self.request.query_params.get("ticker")
-        instrument_type = self.request.query_params.get("type")
-        result = self.request.query_params.get("result")
-        if ticker:
-            qs = qs.filter(instrument__ticker__icontains=ticker)
-        if instrument_type:
-            qs = qs.filter(instrument__instrument_type_id=instrument_type)
-        qs = apply_query_filters(
-            qs,
-            self.request.query_params,
-            (
-                ("quantity_from", "quantity__gte"),
-                ("quantity_to", "quantity__lte"),
-                ("value_from", "position_value__gte"),
-                ("value_to", "position_value__lte"),
-            ),
-        )
+        params = self.request.query_params
+        result = params.get("result")
+
+        if params.get("ticker"):
+            qs = qs.filter(instrument__ticker__icontains=params["ticker"])
+        if params.get("type"):
+            qs = qs.filter(instrument__instrument_type_id=params["type"])
+        if params.get("quantity_from"):
+            qs = qs.filter(quantity__gte=params["quantity_from"])
+        if params.get("quantity_to"):
+            qs = qs.filter(quantity__lte=params["quantity_to"])
+        if params.get("value_from"):
+            qs = qs.filter(position_value__gte=params["value_from"])
+        if params.get("value_to"):
+            qs = qs.filter(position_value__lte=params["value_to"])
+        
         if result == "profit":
             qs = qs.filter(position_profit__gt=0)
         elif result == "loss":
@@ -616,9 +543,7 @@ class PositionViewset(
             for item in positions.iterator()
         )
         return export_response(
-            request,
             "positions",
-            "Позиции портфеля",
             [
                 "Тикер",
                 "Инструмент",
@@ -644,17 +569,20 @@ class PriceHistoryViewset(
 
     def get_queryset(self):
         qs = super().get_queryset()
-        return apply_query_filters(
-            qs,
-            self.request.query_params,
-            (
-                ("instrument", "instrument_id"),
-                ("date_from", "timestamp__date__gte"),
-                ("date_to", "timestamp__date__lte"),
-                ("price_from", "price__gte"),
-                ("price_to", "price__lte"),
-            ),
-        )
+        params = self.request.query_params
+
+        if params.get("instrument"):
+            qs = qs.filter(instrument_id=params["instrument"])
+        if params.get("date_from"):
+            qs = qs.filter(timestamp__date__gte=params["date_from"])
+        if params.get("date_to"):
+            qs = qs.filter(timestamp__date__lte=params["date_to"])
+        if params.get("price_from"):
+            qs = qs.filter(price__gte=params["price_from"])
+        if params.get("price_to"):
+            qs = qs.filter(price__lte=params["price_to"])
+
+        return qs
 
     @action(detail=False, methods=["GET"], url_path="stats")
     def stats(self, request):
@@ -665,32 +593,28 @@ class PriceHistoryViewset(
             min=Min("price"),
             max=Max("price"),
         )
-        data["first"] = qs.order_by("timestamp", "id").values_list("price", flat=True).first()
-        data["last"] = qs.order_by("-timestamp", "-id").values_list("price", flat=True).first()
+        prices = qs.values_list("price", flat=True)
+        data["first"] = prices.reverse().first()
+        data["last"] = prices.first()
         return Response(data)
 
     @action(detail=False, methods=["GET"], url_path="export")
     def export(self, request):
-        records = list(
+        records = (
             self.get_queryset()
             .order_by("timestamp", "id")
             .values_list("timestamp", "price")
+            .iterator()
         )
         rows = []
         older_price = None
         for timestamp, price in records:
-            change = (
-                (price / older_price - 1) * 100
-                if older_price
-                else 0
-            )
+            change = (price / older_price - 1) * 100 if older_price else 0
             rows.append((timestamp, price, change))
             older_price = price
         rows.reverse()
         return export_response(
-            request,
             "price_history",
-            "История цен",
             ["Дата и время", "Цена", "Изменение, %"],
             rows,
         )
@@ -702,58 +626,54 @@ class TradeViewset(
     mixins.DestroyModelMixin,
     mixins.UpdateModelMixin,
     GenericViewSet):
-    queryset = Trade.objects.all().prefetch_related("images").order_by("-created_at", "-id")
+    queryset = (
+        Trade.objects.select_related("instrument__instrument_type")
+        .prefetch_related("images")
+        .order_by("-created_at", "-id")
+    )
     serializer_class = TradeSerializer
     pagination_class = StandardPagination
+    permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        return get_otp_permissions(
-            self.action,
-            ("create", "update", "partial_update", "destroy", "cancel"),
-        )
+        if self.action in ("create", "update", "partial_update", "destroy", "cancel"):
+            return [IsAuthenticated(), OTPRequired()]
+        return super().get_permissions()
 
     def get_queryset(self):
         qs = super().get_queryset()
-        portfolio_id = self.request.query_params.get('portfolio')
-        if portfolio_id:
-            qs = qs.filter(portfolio_id=portfolio_id)
-        if self.request.user.is_superuser:
-            user_id = self.request.query_params.get("user")
-            if user_id:
-                qs = qs.filter(portfolio__user_id=user_id)
-        else:
-            qs = qs.filter(portfolio__user=self.request.user)
+        params = self.request.query_params
+        user = self.request.user
 
-        qs = qs.annotate(
-            total_amount=ExpressionWrapper(
-                F("quantity") * Coalesce(F("execution_price"), F("price"), Value(0)),
-                output_field=DecimalField(max_digits=30, decimal_places=4),
-            )
-        )
-        qs = apply_query_filters(
-            qs,
-            self.request.query_params,
-            (
-                ("created", "created_at__date"),
-                ("executed", "executed_at__date"),
-                ("order_type", "order_type"),
-                ("execution_type", "execution_type"),
-                ("status", "status"),
-            ),
-        )
+        if not user.is_superuser:
+            qs = qs.filter(portfolio__user=user)
+        elif params.get("user"):
+            qs = qs.filter(portfolio__user_id=params["user"])
 
-        ticker = self.request.query_params.get("ticker")
-        if ticker:
-            qs = qs.filter(instrument__ticker__icontains=ticker)
-        return apply_query_filters(
-            qs,
-            self.request.query_params,
-            (
-                ("total_from", "total_amount__gte"),
-                ("total_to", "total_amount__lte"),
-            ),
-        )
+        unit_price = Coalesce("execution_price", "price", Decimal("0"))
+        qs = qs.annotate(total_amount=F("quantity") * unit_price)
 
+        if params.get("portfolio"):
+            qs = qs.filter(portfolio_id=params["portfolio"])
+        if params.get("ticker"):
+            qs = qs.filter(instrument__ticker__icontains=params["ticker"])
+        if params.get("created"):
+            qs = qs.filter(created_at__date=params["created"])
+        if params.get("executed"):
+            qs = qs.filter(executed_at__date=params["executed"])
+        if params.get("order_type"):
+            qs = qs.filter(order_type=params["order_type"])
+        if params.get("execution_type"):
+            qs = qs.filter(execution_type=params["execution_type"])
+        if params.get("status"):
+            qs = qs.filter(status=params["status"])
+        if params.get("total_from"):
+            qs = qs.filter(total_amount__gte=params["total_from"])
+        if params.get("total_to"):
+            qs = qs.filter(total_amount__lte=params["total_to"])
+
+        return qs
+    
     @action(detail=False, methods=["GET"], url_path="stats")
     def stats(self, request):
         stats = self.get_queryset().aggregate(
@@ -770,19 +690,12 @@ class TradeViewset(
                 filter=Q(status=Trade.Status.executed, order_type=Trade.OrderType.sell),
             ),
         )
-        total = stats["total"] or 0
-        executed = stats["executed"] or 0
-        cancelled = stats["cancelled"] or 0
-        return Response({
-            "total": total,
-            "executed": executed,
-            "executedShare": round(executed / total * 100) if total else 0,
-            "pending": stats["pending"] or 0,
-            "cancelled": cancelled,
-            "cancelledShare": round(cancelled / total * 100) if total else 0,
-            "buys": float(stats["buys"] or 0),
-            "sells": float(stats["sells"] or 0),
-        })
+        total = stats["total"]
+        stats["executedShare"] = round(stats["executed"] / total * 100) if total else 0
+        stats["cancelledShare"] = round(stats["cancelled"] / total * 100) if total else 0
+        stats["buys"] = float(stats["buys"] or 0)
+        stats["sells"] = float(stats["sells"] or 0)
+        return Response(stats)
 
     @action(detail=False, methods=["GET"], url_path="export")
     def export(self, request):
@@ -808,9 +721,7 @@ class TradeViewset(
             for item in trades.iterator(chunk_size=2000)
         )
         return export_response(
-            request,
             "trades",
-            "История сделок",
             [
                 "Создана",
                 "Исполнена",
@@ -831,15 +742,17 @@ class TradeViewset(
 
     def perform_create(self, serializer):
         trade = serializer.save()
-        if trade.execution_type == Trade.ExecutionType.market:
-            try:
-                service.StockMatrketService.execute_trade(trade)
-            except TradeException:
-                trade.status = Trade.Status.cancelled
-                trade.save()
-                raise
-        else:
+
+        if trade.execution_type != Trade.ExecutionType.market:
             service.StockMatrketService.check_pending_limit_orders(trade.instrument)
+            return
+
+        try:
+            service.StockMatrketService.execute_trade(trade)
+        except TradeException:
+            trade.status = Trade.Status.cancelled
+            trade.save()
+            raise
 
     def get_serializer_class(self):
         if self.action in ('update', 'partial_update'):
@@ -859,5 +772,5 @@ class TradeViewset(
             raise TradeException('Изменить можно только ожидающую заявку')
         trade.status = Trade.Status.cancelled
         trade.save()
-        return Response(TradeSerializer(trade, context=self.get_serializer_context()).data)
+        return Response(self.get_serializer(trade).data)
 

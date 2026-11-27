@@ -1,27 +1,10 @@
 <script setup>
 import InstrumentLogo from "@/components/InstrumentLogo.vue";
+import { formatPrice, formatSigned } from "@/utils/format";
 
 defineProps({
-  instrument: {
-    type: Object,
-    required: true,
-  },
-  rank: {
-    type: Number,
-    default: null,
-  },
-  change: {
-    type: String,
-    default: "",
-  },
-  isUp: {
-    type: Boolean,
-    default: true,
-  },
-  sparkPoints: {
-    type: String,
-    default: "",
-  },
+  instrument: { type: Object, required: true },
+  rank: { type: Number, default: null },
 });
 </script>
 
@@ -34,33 +17,21 @@ defineProps({
     <InstrumentLogo
       :ticker="instrument.ticker"
       :logo="instrument.logo"
-      :type="instrument.type"
       :zoomable="false"
     />
     <span class="cell-instrument-text">
       <span class="cell-instrument-ticker">{{ instrument.ticker }}</span>
       <span class="cell-instrument-name">{{ instrument.name }}</span>
     </span>
-    <svg
-      v-if="sparkPoints"
-      class="instrument-card-spark"
-      viewBox="0 0 72 28"
-      preserveAspectRatio="none"
-    >
-      <polyline
-        class="spark-line"
-        :class="{ 'is-down': !isUp }"
-        :points="sparkPoints"
-      />
-    </svg>
     <span class="instrument-card-price">
-      <span class="instrument-card-value">{{ instrument.price }} ₽</span>
+      <span class="instrument-card-value">
+        {{ formatPrice(instrument.current_price) }} ₽
+      </span>
       <span
-        v-if="change"
         class="price-change"
-        :class="isUp ? 'is-up' : 'is-down'"
+        :class="instrument.change_percent >= 0 ? 'is-up' : 'is-down'"
       >
-        {{ change }}
+        {{ formatSigned(instrument.change_percent) }}%
       </span>
     </span>
   </router-link>
@@ -92,35 +63,12 @@ defineProps({
   font-weight: 600;
 }
 
-.instrument-card-spark {
-  width: 72px;
-  height: 28px;
-  flex: none;
-  margin-left: auto;
-}
-
-.spark-line {
-  fill: none;
-  stroke: var(--color-up);
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-
-.spark-line.is-down {
-  stroke: var(--color-down);
-}
-
 .instrument-card-price {
   margin-left: auto;
   text-align: right;
   display: flex;
   flex-direction: column;
   line-height: 1.3;
-}
-
-.instrument-card-spark + .instrument-card-price {
-  margin-left: 0;
-  min-width: 96px;
 }
 
 .instrument-card-value {

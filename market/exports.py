@@ -1,8 +1,6 @@
-from datetime import date, datetime
-from decimal import Decimal
+from datetime import datetime
 from io import BytesIO
 
-from docx import Document
 from django.http import HttpResponse
 from openpyxl import Workbook
 
@@ -10,20 +8,6 @@ from openpyxl import Workbook
 EXCEL_CONTENT_TYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-WORD_CONTENT_TYPE = (
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-)
-
-
-def format_cell(value):
-    if value is None:
-        return ""
-    if isinstance(value, (date, datetime)):
-        return value.isoformat(sep=" ") if isinstance(value, datetime) else value.isoformat()
-    if isinstance(value, Decimal):
-        return format(value, "f")
-    return str(value)
-
 
 def safe_excel_value(value):
     if isinstance(value, datetime) and value.utcoffset() is not None:
@@ -45,37 +29,8 @@ def make_excel(headers, rows):
     return content.getvalue()
 
 
-def make_word(title, headers, rows):
-    document = Document()
-    document.add_heading(title, level=1)
-    table = document.add_table(rows=1, cols=len(headers))
-    table.style = "Table Grid"
-    for cell, header in zip(table.rows[0].cells, headers):
-        cell.text = str(header)
-
-    for row in rows:
-        cells = table.add_row().cells
-        for cell, value in zip(cells, row):
-            cell.text = format_cell(value)
-
-    content = BytesIO()
-    document.save(content)
-    return content.getvalue()
-
-
-def export_response(request, filename, title, headers, rows):
-    export_format = request.query_params.get("export_format")
-    if export_format == "excel":
-        content = make_excel(headers, rows)
-        extension = "xlsx"
-        content_type = EXCEL_CONTENT_TYPE
-    elif export_format == "word":
-        content = make_word(title, headers, rows)
-        extension = "docx"
-        content_type = WORD_CONTENT_TYPE
-
-    response = HttpResponse(content, content_type=content_type)
-    response["Content-Disposition"] = (
-        f'attachment; filename="{filename}.{extension}"'
-    )
+def export_response(filename, headers, rows):
+    content = make_excel(headers, rows)
+    response = HttpResponse(content, content_type=EXCEL_CONTENT_TYPE)
+    response["Content-Disposition"] = f'attachment; filename="{filename}.xlsx"'
     return response

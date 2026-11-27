@@ -1,6 +1,6 @@
 <script setup>
-import HeaderNavbar from '@/components/HeaderNavbar.vue'
-import EmptyState from '@/components/EmptyState.vue'
+import HeaderNavbar from "@/components/HeaderNavbar.vue";
+import EmptyState from "@/components/EmptyState.vue";
 </script>
 
 <template>
@@ -13,7 +13,9 @@ import EmptyState from '@/components/EmptyState.vue'
         text="Эта страница доступна только суперпользователю."
         danger
       >
-        <router-link :to="{ name: 'dashboard' }" class="btn btn-secondary">На дашборд</router-link>
+        <router-link :to="'dashboard'" class="btn btn-secondary"
+          >На дашборд</router-link
+        >
       </EmptyState>
     </section>
   </main>

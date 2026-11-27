@@ -21,7 +21,7 @@ import {
   formatCompact,
   formatCompactSigned,
 } from "@/utils/format";
-import { toFormData, errorText } from "@/utils/requestFormatter";
+import { toFormData, errorText } from "@/utils/apiHelper";
 import { byId, listResults } from "@/utils/lists";
 import { calcPosition } from "@/utils/positions";
 import {
@@ -153,14 +153,11 @@ onBeforeMount(async () => {
 });
 
 const positionRows = computed(() => {
-  const typesById = byId(typesList.value);
   return positionList.value.map((pos) => {
     const c = calcPosition(pos);
-    const typeId = pos.instrument_info.instrument_type;
     return {
       ...pos,
-      typeId,
-      typeName: typesById[typeId]?.name ?? "—",
+      typeName: pos.instrument_info.instrument_type_name,
       quantityText: formatQuantity(c.quantity),
       averageText: formatPrice(c.average),
       currentText: formatPrice(c.current),
@@ -174,16 +171,12 @@ const positionRows = computed(() => {
 
 const totals = computed(() => {
   const stats = portfolioStats.value ?? {};
-  const positionsValue = Number(stats.positionsValue ?? 0);
-  const profit = Number(stats.profit ?? 0);
-  const balance = Number(portfolio.value?.balance ?? 0);
-  const cost = positionsValue - profit;
   return {
-    balance,
-    positionsValue,
-    value: Number(stats.totalValue ?? balance + positionsValue),
-    profit,
-    percent: cost ? (profit / cost) * 100 : 0,
+    balance: Number(stats.balance ?? 0),
+    positionsValue: Number(stats.positionsValue ?? 0),
+    value: Number(stats.totalValue ?? 0),
+    profit: Number(stats.profit ?? 0),
+    percent: Number(stats.profitPercent ?? 0),
     positionsCount: Number(stats.positionsCount ?? 0),
     tradeCount: Number(stats.tradeCount ?? 0),
     pendingCount: Number(stats.pendingCount ?? 0),
@@ -218,7 +211,7 @@ async function savePortfolio(data) {
 async function deletePortfolio() {
   try {
     await axios.delete(`/api/portfolio/${portfolio.value.id}/`);
-    router.push({ name: "portfolios" });
+    router.push("portfolios");
   } catch (e) {
     alert(errorText(e));
   }
@@ -739,7 +732,7 @@ watch(tradePage, loadTrades);
   />
   <ImageModal
     v-if="imageModal"
-    :src="imageModal.src"
+    :images="[{ image: imageModal.src }]"
     :caption="imageModal.caption"
     @close="imageModal = null"
   />

@@ -72,10 +72,6 @@ defineEmits(["close", "submit"]);
   max-width: 420px;
 }
 
-.modal-lg {
-  max-width: 640px;
-}
-
 .modal-header {
   display: flex;
   align-items: center;

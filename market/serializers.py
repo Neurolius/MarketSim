@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from market.models import InstrumentType, Instrument, Portfolio, Position, PriceHistory, Trade, TradeImage
 
-
 class InstrumentTypeSerializer(serializers.ModelSerializer):
     instruments_count = serializers.IntegerField(read_only=True)
 
@@ -12,11 +11,17 @@ class InstrumentTypeSerializer(serializers.ModelSerializer):
 class InstrumentSerializer(serializers.ModelSerializer):
     prev_price = serializers.DecimalField(max_digits=15, decimal_places=4, read_only=True, allow_null=True)
     price_updated_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    change_percent = serializers.FloatField(read_only=True)
+    instrument_type_name = serializers.CharField(
+        source="instrument_type.name", read_only=True
+    )
     
     class Meta:
         model = Instrument
-        fields = ['id', 'ticker', 'name', 'instrument_type', 'current_price', 'logo', 'prev_price', 'price_updated_at']
-
+        fields = ['id', 'ticker', 'name', 
+                  'instrument_type', 'current_price', 'logo', 
+                  'prev_price', 'price_updated_at',
+                  'change_percent','instrument_type_name']
 
 class PortfolioSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)
@@ -26,6 +31,9 @@ class PortfolioSerializer(serializers.ModelSerializer):
     )
     positions_cost = serializers.DecimalField(
         max_digits=30, decimal_places=4, read_only=True, default=0
+    )
+    total_value = serializers.DecimalField(
+        max_digits=30, decimal_places=4, read_only=True
     )
     
     def create(self, validated_data):
@@ -46,17 +54,25 @@ class PortfolioSerializer(serializers.ModelSerializer):
         model = Portfolio
         fields = [
             'id', 'name', 'user', 'user_name', 'balance', 'cover_image',
-            'positions_count', 'positions_value', 'positions_cost',
+            'positions_count', 'positions_value', 'positions_cost', 'total_value'
         ]
         read_only_fields = ['user']
 
 
 class PositionSerializer(serializers.ModelSerializer):
     instrument_info = InstrumentSerializer(source='instrument', read_only=True)
+    position_value = serializers.DecimalField(
+        max_digits=30, decimal_places=8, read_only=True
+    )
+    position_profit = serializers.DecimalField(
+        max_digits=30, decimal_places=8, read_only=True
+    )
 
     class Meta:
         model = Position
-        fields = ['id', 'portfolio', 'instrument', 'instrument_info', 'quantity', 'average_price']
+        fields = ['id', 'portfolio', 'instrument', 
+                  'instrument_info', 'quantity', 
+                  'average_price','position_value','position_profit']
         read_only_fields = ['portfolio', 'instrument', 'quantity', 'average_price']
 
 
@@ -82,12 +98,16 @@ class TradeSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True,
     )
+    total_amount = serializers.DecimalField(
+        max_digits=30, decimal_places=8, read_only=True
+    )
 
     class Meta:
         model = Trade
         fields = ['id', 'portfolio', 'portfolio_name', 'instrument', 'instrument_info', 'order_type',
                   'execution_type', 'quantity', 'price', 'status',
-                  'execution_price', 'created_at', 'executed_at', 'images', 'new_images']
+                  'execution_price', 'total_amount', 'created_at', 
+                  'executed_at', 'images', 'new_images']
         read_only_fields = ['execution_price', 'status', 'created_at', 'executed_at']
 
     def create(self, validated_data):
@@ -99,7 +119,11 @@ class TradeSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         request = self.context.get('request')
-        if request and data['portfolio'].user_id != request.user.id:
+        if (
+            request
+            and not request.user.is_superuser
+            and data['portfolio'].user_id != request.user.id
+        ):
             raise serializers.ValidationError({'portfolio': 'Это портфель другого пользователя.'})
         if data['quantity'] <= 0:
             raise serializers.ValidationError({'quantity': 'Количество должно быть положительным числом.'})

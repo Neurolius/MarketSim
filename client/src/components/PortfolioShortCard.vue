@@ -147,14 +147,4 @@ defineProps({
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
-.portfolio-short-card-foot {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-.portfolio-short-card-foot span {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
 </style>

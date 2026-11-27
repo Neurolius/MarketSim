@@ -3,10 +3,6 @@ import { computed, ref } from "vue";
 import AppIcon from "@/components/AppIcon.vue";
 
 const props = defineProps({
-  src: {
-    type: String,
-    default: "",
-  },
   caption: {
     type: String,
     default: "",
@@ -23,7 +19,7 @@ const props = defineProps({
 
 const currentIndex = ref(props.initialIndex);
 const currentSrc = computed(() =>
-  props.images.length ? props.images[currentIndex.value].image : props.src,
+  props.images[currentIndex.value]?.image ?? "",
 );
 
 function showPrevious() {

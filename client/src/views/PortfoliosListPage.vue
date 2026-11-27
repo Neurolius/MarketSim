@@ -18,7 +18,7 @@ import {
   formatCompact,
   formatCompactSigned,
 } from "@/utils/format";
-import { toFormData, errorText } from "@/utils/requestFormatter";
+import { toFormData, errorText } from "@/utils/apiHelper";
 import { listResults } from "@/utils/lists";
 import PaginationControls from "@/components/PaginationControls.vue";
 
@@ -86,14 +86,12 @@ const portfolioRows = computed(() =>
   portfolioList.value.map((p) => {
     const positionsValue = Number(p.positions_value ?? 0);
     const cost = Number(p.positions_cost ?? 0);
-    const balance = Number(p.balance);
-    const value = balance + positionsValue;
     const profit = positionsValue - cost;
     const percent = cost ? (profit / cost) * 100 : 0;
     return {
       ...p,
       positionsCount: Number(p.positions_count ?? 0),
-      valueText: `${formatPrice(value)} ₽`,
+      valueText: `${formatPrice(p.total_value)} ₽`,
       profitText: `${formatSigned(profit)} ₽`,
       change: cost ? `${formatSigned(percent)}%` : "",
       isUp: profit >= 0,
@@ -355,7 +353,7 @@ async function confirmDelete() {
   />
   <ImageModal
     v-if="coverPortfolio"
-    :src="coverPortfolio.cover_image ?? ''"
+    :images="[{ image: coverPortfolio.cover_image ?? '' }]"
     :caption="`Обложка портфеля «${coverPortfolio.name}»`"
     @close="coverPortfolio = null"
   />
